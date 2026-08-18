@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import auth, documents, draft, query, timeline, users
+from app.api.v1 import auth, documents, draft, query, timeline, users, chat, voice
 from app.core.config import get_settings
 from app.db import Base, engine
 import app.models  # registers models before create_all
@@ -38,5 +38,4 @@ def startup() -> None:
 def health():
     with engine.connect() as connection: connection.execute(text('SELECT 1'))
     return {'status': 'ok', 'version': app.version}
-
-for router in (auth.router, users.router, query.router, documents.router, draft.router, timeline.router): app.include_router(router, prefix=settings.api_v1_str)
+for router in (auth.router, users.router, query.router, documents.router, draft.router, timeline.router, chat.router, voice.router): app.include_router(router, prefix=settings.api_v1_str)
