@@ -5,9 +5,9 @@ from functools import lru_cache
 from typing import Any
 import math
 
-from app.ai_stubs.common import cosine_similarity, score_overlap, simple_embedding
-from app.config import CORPUS_PATH, QDRANT_DIR, SETTINGS
-from app.knowledge_base.store import load_json_records, load_seed_records, make_source_label, record_text
+from app.ai.ai_stubs.common import cosine_similarity, score_overlap, simple_embedding
+from app.ai.config import CORPUS_PATH, QDRANT_DIR, SETTINGS
+from app.ai.knowledge_base.store import load_json_records, load_seed_records, make_source_label, record_text
 
 
 def _load_records() -> list[dict[str, Any]]:
@@ -122,11 +122,23 @@ def _manual_bm25_search(query: str, top_k: int) -> list[dict[str, Any]]:
     ]
 
 
-def _build_bm25_candidates(query: str, top_k: int = 20) -> list[dict[str, Any]]:
+@lru_cache(maxsize=1)
+def _bm25_retriever() -> Any:
+    """Build and cache the BM25 retriever to avoid rebuilding on every query."""
     try:
         from langchain_community.retrievers import BM25Retriever  # type: ignore
 
-        retriever = BM25Retriever.from_documents(list(_documents_cache()))
+        return BM25Retriever.from_documents(list(_documents_cache()))
+    except Exception:
+        return None
+
+
+def _build_bm25_candidates(query: str, top_k: int = 20) -> list[dict[str, Any]]:
+    try:
+        retriever = _bm25_retriever()
+        if retriever is None:
+            return _manual_bm25_search(query, top_k)
+        
         retriever.k = top_k
         documents = retriever.invoke(query)
         results: list[dict[str, Any]] = []
@@ -174,13 +186,25 @@ def _manual_rerank(query: str, candidates: list[dict[str, Any]], top_k: int) -> 
     return scored_candidates[:top_k]
 
 
+@lru_cache(maxsize=1)
+def _cross_encoder() -> Any:
+    """Build and cache the cross-encoder model to avoid reloading on every query."""
+    try:
+        from sentence_transformers import CrossEncoder  # type: ignore
+
+        return CrossEncoder(SETTINGS.cross_encoder_model)
+    except Exception:
+        return None
+
+
 def _rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> list[dict[str, Any]]:
     if not candidates:
         return []
     try:
-        from sentence_transformers import CrossEncoder  # type: ignore
-
-        model = CrossEncoder(SETTINGS.cross_encoder_model)
+        model = _cross_encoder()
+        if model is None:
+            return _manual_rerank(query, candidates, top_k)
+        
         pairs = [(query, record.get("simplified_text") or record_text(record)) for record in candidates]
         scores = model.predict(pairs)
         scored_candidates = []

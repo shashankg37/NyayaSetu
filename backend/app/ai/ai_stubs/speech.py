@@ -8,7 +8,7 @@ import os
 
 import requests
 
-from app.config import SETTINGS
+from app.ai.config import SETTINGS
 
 
 def _detect_language(text: str) -> str:

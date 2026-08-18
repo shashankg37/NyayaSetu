@@ -5,7 +5,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from docx import Document
 from sqlalchemy.orm import Session
-from app.ai_stubs.draft_fields import missing_fields
+from app.ai.ai_stubs.draft_fields import missing_fields
 from app.models import AuditLog, DraftStatus, DraftedDocument
 from app.services.query_service import session_for
 from app.services.storage_service import storage

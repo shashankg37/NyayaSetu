@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.ai_stubs.timeline import reconstruct_timeline
+from app.ai.ai_stubs.timeline import reconstruct_timeline
 from app.models import Timeline
 from app.services.query_service import session_for
 

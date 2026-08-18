@@ -8,15 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements first (for layer caching)
+# Copy backend requirements
 COPY requirements.txt .
 
-# Install backend dependencies, including the AI package from parent directory
-# Note: The AI package path in -e ../app is relative to /app, which maps to backend/
-# The docker-compose mounts the AI package at /app/../app
+# Install dependencies (includes both backend and AI packages)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code
+# Copy backend code (includes the merged AI package at app/ai/)
 COPY . .
 
 # Create storage directories
@@ -26,6 +24,5 @@ RUN mkdir -p storage/uploads storage/drafts
 EXPOSE 8000
 
 # Run migrations and start the server
-# (This will be overridden by docker-compose command for development)
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
 

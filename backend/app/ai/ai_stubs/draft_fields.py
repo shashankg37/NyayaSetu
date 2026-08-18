@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any
 import json
 
-from app.config import TEMPLATES_DIR
-from app.knowledge_base.store import normalize_key
+from app.ai.config import TEMPLATES_DIR
+from app.ai.knowledge_base.store import normalize_key
 
 
 def _load_template(doc_type: str) -> dict[str, Any] | None:

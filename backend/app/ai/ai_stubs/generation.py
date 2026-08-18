@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.ai_stubs.common import get_threshold
-from app.config import SETTINGS
+from app.ai.ai_stubs.common import get_threshold
+from app.ai.config import SETTINGS
 
 
 def _fallback_response(query: str, chunks: list[dict[str, Any]], confidence: float) -> dict[str, Any]:

@@ -19,7 +19,7 @@ os.environ['GEMINI_API_KEY'] = 'test-key'  # May not be real, but needed for con
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
-from app.ai_stubs import retrieval, generation, intent, vision, speech, draft_fields
+from app.ai.ai_stubs import retrieval, generation, intent, vision, speech, draft_fields
 
 
 @pytest.fixture(autouse=True)

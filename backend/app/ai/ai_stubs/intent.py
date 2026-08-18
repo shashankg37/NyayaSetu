@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.ai_stubs.common import tokenize
+from app.ai.ai_stubs.common import tokenize
 
 
 def classify_intent(text: str) -> str:

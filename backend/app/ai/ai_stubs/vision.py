@@ -5,7 +5,7 @@ from typing import Any
 import base64
 import mimetypes
 
-from app.ai_stubs.retrieval import retrieve
+from app.ai.ai_stubs.retrieval import retrieve
 
 
 def _extract_pdf_text(file_bytes: bytes) -> str:
@@ -37,7 +37,7 @@ def _gemini_vision(file_bytes: bytes, mime_type: str) -> dict[str, Any] | None:
         import google.generativeai as genai  # type: ignore
     except Exception:
         return None
-    from app.config import SETTINGS
+    from app.ai.config import SETTINGS
 
     api_key = getattr(SETTINGS, "gemini_api_key", "")
     if not api_key:
@@ -53,7 +53,7 @@ def _gemini_vision(file_bytes: bytes, mime_type: str) -> dict[str, Any] | None:
         part = {"mime_type": mime_type, "data": base64.b64encode(file_bytes).decode("ascii")}
         response = model.generate_content([prompt, part], generation_config={"response_mime_type": "application/json"})
         if getattr(response, "text", None):
-            from app.ai_stubs.common import safe_json_loads
+            from app.ai.ai_stubs.common import safe_json_loads
 
             parsed = safe_json_loads(response.text)
             if isinstance(parsed, dict):

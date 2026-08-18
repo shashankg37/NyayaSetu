@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from app.config import BM25_PATH, CORPUS_PATH, KB_DIR, SAMPLE_CORPUS_PATH
+from app.ai.config import BM25_PATH, CORPUS_PATH, KB_DIR, SAMPLE_CORPUS_PATH
 
 
 @dataclass

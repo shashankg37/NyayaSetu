@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.ai_stubs.draft_fields import missing_fields
-from app.ai_stubs.generation import generate_answer
-from app.ai_stubs.intent import classify_intent
-from app.ai_stubs.retrieval import retrieve
+from app.ai.ai_stubs.draft_fields import missing_fields
+from app.ai.ai_stubs.generation import generate_answer
+from app.ai.ai_stubs.intent import classify_intent
+from app.ai.ai_stubs.retrieval import retrieve
 
 
 def test_intent_classifier_routes_draft_requests() -> None:

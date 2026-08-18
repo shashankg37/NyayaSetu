@@ -6,9 +6,9 @@ from typing import Any
 import json
 import re
 
-from app.ai_stubs.common import chunk_text, heuristic_simplify, normalize_text
-from app.config import CORPUS_PATH, KB_DIR, QDRANT_DIR, SAMPLE_CORPUS_PATH, SETTINGS
-from app.knowledge_base.store import (
+from app.ai.ai_stubs.common import chunk_text, heuristic_simplify, normalize_text
+from app.ai.config import CORPUS_PATH, KB_DIR, QDRANT_DIR, SAMPLE_CORPUS_PATH, SETTINGS
+from app.ai.knowledge_base.store import (
     ChunkRecord,
     ensure_kb_dirs,
     load_json_records,

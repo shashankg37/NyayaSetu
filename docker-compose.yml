@@ -39,7 +39,7 @@ services:
     networks:
       - nyaya_network
 
-  # FastAPI backend (includes AI package in-process)
+  # FastAPI backend (includes AI package as part of the same codebase)
   backend:
     build:
       context: ./backend
@@ -53,7 +53,6 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/storage:/app/storage
-      - ./app:/app/../app  # Mount AI package in editable mode
     depends_on:
       postgres:
         condition: service_healthy

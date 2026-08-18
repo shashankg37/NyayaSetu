@@ -6,7 +6,7 @@ import math
 import re
 from typing import Any
 
-from app.config import SETTINGS
+from app.ai.config import SETTINGS
 
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9]+", re.UNICODE)
