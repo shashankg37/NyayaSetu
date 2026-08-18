@@ -1,214 +1,117 @@
+"""
+Ingestion script for Nyaya Setu legal knowledge base.
+
+Uses the pipeline:
+Loaders -> Cleaner -> Chunker -> Classifier (InLegalBERT) -> Metadata -> Embedder -> Indexer
+"""
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 from typing import Any
-import json
-import re
 
-from app.ai.ai_stubs.common import chunk_text, heuristic_simplify, normalize_text
-from app.ai.config import CORPUS_PATH, KB_DIR, QDRANT_DIR, SAMPLE_CORPUS_PATH, SETTINGS
-from app.ai.llm import generate_json
-from app.ai.knowledge_base.store import (
-    ChunkRecord,
-    ensure_kb_dirs,
-    load_json_records,
-    load_seed_records,
-    save_json_records,
-    save_pickle,
-)
+from app.ai.knowledge_base.store import ensure_kb_dirs, load_seed_records, save_json_records
+from app.ingestion.chunker import chunk_document, LegalChunk
+from app.ingestion.classifier import classify_batch
+from app.ingestion.cleaner import clean_pages
+from app.ingestion.embedder import embed_texts
+from app.ingestion.indexer import index_bm25, index_qdrant
+from app.ingestion.loaders import load_directory, RawDocument
+from app.ingestion.metadata import enrich_chunks
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def _extract_text_from_file(path: Path) -> str:
-    suffix = path.suffix.lower()
-    if suffix == ".txt":
-        return path.read_text(encoding="utf-8", errors="ignore")
-    if suffix == ".json":
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(payload, list):
-                return "\n\n".join(
-                    " ".join(str(value) for value in item.values() if isinstance(value, (str, int, float)))
-                    for item in payload
-                    if isinstance(item, dict)
-                )
-            if isinstance(payload, dict):
-                return " ".join(str(value) for value in payload.values() if isinstance(value, (str, int, float)))
-        except Exception:
-            return ""
-    if suffix == ".pdf":
-        try:
-            from pypdf import PdfReader  # type: ignore
-
-            reader = PdfReader(str(path))
-            pages = []
-            for page in reader.pages:
-                pages.append(page.extract_text() or "")
-            return "\n".join(pages)
-        except Exception:
-            return ""
-    if suffix in {".html", ".htm"}:
-        try:
-            from bs4 import BeautifulSoup  # type: ignore
-
-            return BeautifulSoup(path.read_text(encoding="utf-8", errors="ignore"), "html.parser").get_text(" ")
-        except Exception:
-            return ""
-    return ""
-
-
-def _source_to_metadata(path: Path, text: str) -> dict[str, str]:
-    lower = f"{path.stem} {text[:1200]}".lower()
-    topic = "general"
-    if any(marker in lower for marker in ["wage", "salary", "employ", "labour", "worker"]):
-        topic = "labour"
-    elif any(marker in lower for marker in ["tenant", "landlord", "rent", "evict"]):
-        topic = "housing"
-    elif any(marker in lower for marker in ["family", "marriage", "child", "maintenance"]):
-        topic = "family"
-    elif any(marker in lower for marker in ["consumer", "purchase", "refund"]):
-        topic = "consumer"
-    return {
-        "document_id": path.stem,
-        "document_name": path.name,
-        "source": path.stem,
-        "topic": topic,
-        "legal_domain": topic,
-        "beneficiary": "citizen",
-        "jurisdiction": "india",
-        "language": "en",
-        "source_url": path.as_uri(),
-    }
-
-
-def _build_records_from_text(source_name: str, text: str, metadata: dict[str, str]) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    chunks = chunk_text(text)
-    for index, chunk in enumerate(chunks, start=1):
-        simplified = _simplify_chunk(chunk)
-        record = ChunkRecord(
-            chunk_id=f"{source_name}_{index}",
-            document_id=metadata["document_id"],
-            document_name=metadata["document_name"],
-            source=metadata["source"],
-            act=source_name,
-            section=f"Chunk {index}",
-            topic=metadata["topic"],
-            legal_domain=metadata["legal_domain"],
-            beneficiary=metadata["beneficiary"],
-            jurisdiction=metadata["jurisdiction"],
-            language=metadata["language"],
-            original_text=chunk,
-            simplified_text=simplified,
-            source_url=metadata["source_url"],
-            page=index,
-        )
-        records.append(record.to_dict())
-    return records
-
-
-def _simplify_chunk(text: str) -> str:
-    prompt = (
-        "Rewrite this legal text in plain language in one or two sentences. "
-        "Return JSON with key simplified_text. Do not invent facts.\n\n"
-        f"Text: {text}"
+def process_document(doc: RawDocument) -> list[LegalChunk]:
+    """Clean and chunk a single loaded document."""
+    cleaned_pages = clean_pages(doc.pages)
+    if not cleaned_pages:
+        return []
+        
+    return chunk_document(
+        document_id=doc.document_id,
+        document_name=doc.document_name,
+        source=doc.source,
+        source_url=doc.source_url,
+        pages=cleaned_pages,
+        language="en",
     )
-    response = generate_json(prompt)
-    simplified = str((response or {}).get("simplified_text", "")).strip()
-    return simplified or heuristic_simplify(text)
 
 
-def _embed_record(text: str) -> list[float]:
-    try:
-        from sentence_transformers import SentenceTransformer  # type: ignore
-
-        model = SentenceTransformer(SETTINGS.embedding_model)
-        vector = model.encode([text], normalize_embeddings=True)[0]
-        return vector.tolist() if hasattr(vector, "tolist") else list(vector)
-    except Exception:
-        from app.ai.ai_stubs.common import simple_embedding
-
-        return simple_embedding(text)
-
-
-def _prepare_qdrant(records: list[dict[str, Any]]) -> None:
-    try:
-        from qdrant_client import QdrantClient  # type: ignore
-        from qdrant_client.http import models as rest  # type: ignore
-    except Exception:
-        return
-    if not records:
-        return
-    QDRANT_DIR.mkdir(parents=True, exist_ok=True)
-    client = QdrantClient(path=str(QDRANT_DIR))
-    vector_size = len(records[0].get("embedding", [])) or 128
-    if not client.collection_exists(SETTINGS.qdrant_collection):
-        client.create_collection(
-            collection_name=SETTINGS.qdrant_collection,
-            vectors_config=rest.VectorParams(size=vector_size, distance=rest.Distance.COSINE),
-        )
-    points = []
-    for idx, record in enumerate(records):
-        points.append(
-            rest.PointStruct(
-                id=idx,
-                vector=record["embedding"],
-                payload={key: value for key, value in record.items() if key != "embedding"},
-            )
-        )
-    client.upsert(collection_name=SETTINGS.qdrant_collection, points=points)
-
-
-def _build_bm25(records: list[dict[str, Any]]) -> None:
-    try:
-        from rank_bm25 import BM25Okapi  # type: ignore
-    except Exception:
-        return
-    from app.ai.ai_stubs.common import tokenize
-
-    corpus = [tokenize(f"{record.get('original_text', '')} {record.get('simplified_text', '')}") for record in records]
-    bm25 = BM25Okapi(corpus)
-    save_pickle(bm25)
-
-
-def ingest(source_dir: Path | None = None) -> list[dict[str, Any]]:
+def ingest(source_dir: Path, rebuild: bool = False) -> list[dict[str, Any]]:
+    """Run the full ingestion pipeline."""
     ensure_kb_dirs()
-    records: list[dict[str, Any]] = []
-    records.extend(load_seed_records())
-    if source_dir and source_dir.exists():
-        for path in sorted(source_dir.rglob("*")):
-            if not path.is_file():
-                continue
-            if path.suffix.lower() not in {".txt", ".json", ".pdf", ".html", ".htm"}:
-                continue
-            text = normalize_text(_extract_text_from_file(path))
-            if not text:
-                continue
-            metadata = _source_to_metadata(path, text)
-            source_records = _build_records_from_text(path.stem, text, metadata)
-            records.extend(source_records)
+    
+    # 1. Load documents
+    logger.info("Loading documents from %s", source_dir)
+    docs = load_directory(source_dir)
+    logger.info("Loaded %d documents", len(docs))
+    
+    # 2. Clean and Chunk
+    logger.info("Cleaning and chunking...")
+    all_chunks: list[LegalChunk] = []
+    for doc in docs:
+        chunks = process_document(doc)
+        all_chunks.extend(chunks)
+    logger.info("Generated %d chunks from files", len(all_chunks))
+    
+    # 3. Classify
+    logger.info("Classifying chunks with InLegalBERT (this may take a while)...")
+    texts_to_classify = [c.original_text for c in all_chunks]
+    classifications = classify_batch(texts_to_classify)
+    
+    # 4. Enrich metadata
+    logger.info("Enriching metadata...")
+    records = enrich_chunks(all_chunks, classifications)
+    
+    # Add seed records (already processed/mocked)
+    seed_records = load_seed_records()
+    if seed_records:
+        logger.info("Adding %d seed records", len(seed_records))
+        records.extend(seed_records)
+        
+    # Deduplicate by chunk_id
     deduped: dict[str, dict[str, Any]] = {}
     for record in records:
-        chunk_id = str(record.get("chunk_id"))
+        chunk_id = str(record.get("chunk_id", ""))
         if chunk_id:
             deduped[chunk_id] = record
     final_records = list(deduped.values())
-    for record in final_records:
-        record["embedding"] = _embed_record(
-            " ".join(
-                part
-                for part in [
-                    record.get("act", ""),
-                    record.get("section", ""),
-                    record.get("original_text", ""),
-                    record.get("simplified_text", ""),
-                ]
-                if part
-            )
+    
+    # 5. Embed
+    logger.info("Generating embeddings for %d records...", len(final_records))
+    embed_texts_list = [
+        " ".join(
+            part
+            for part in [
+                r.get("act", ""),
+                r.get("section", ""),
+                r.get("topic", ""),
+                r.get("original_text", ""),
+                r.get("simplified_text", "")
+            ]
+            if part
         )
+        for r in final_records
+    ]
+    embeddings = embed_texts(embed_texts_list)
+    for record, vector in zip(final_records, embeddings):
+        record["embedding"] = vector
+        
+    # Save JSON snapshot
     save_json_records(final_records)
-    _prepare_qdrant(final_records)
-    _build_bm25(final_records)
+    logger.info("Saved %d records to corpus.json", len(final_records))
+    
+    # 6. Index (Qdrant + BM25)
+    logger.info("Indexing into Qdrant...")
+    upserted = index_qdrant(final_records, recreate=rebuild)
+    
+    logger.info("Indexing into BM25...")
+    indexed_bm25 = index_bm25(final_records)
+    
+    logger.info("Ingestion complete. Qdrant points: %d, BM25 docs: %d", upserted, indexed_bm25)
     return final_records
 
 
@@ -220,9 +123,14 @@ def main() -> None:
         default=Path("data/source_docs"),
         help="Folder containing PDFs, HTML, TXT, or JSON source documents.",
     )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Recreate the Qdrant collection instead of appending.",
+    )
     args = parser.parse_args()
-    records = ingest(args.source_dir)
-    print(f"Ingested {len(records)} chunks into the local knowledge base.")
+    
+    ingest(args.source_dir, rebuild=args.rebuild)
 
 
 if __name__ == "__main__":
