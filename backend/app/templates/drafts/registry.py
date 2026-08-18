@@ -1,0 +1,6 @@
+TEMPLATES = {
+    "rti_application": {"required_fields": ["applicant_name", "address", "public_authority", "information_requested"], "title": "Application under the Right to Information Act", "body": "To, {public_authority}\n\nI, {applicant_name}, residing at {address}, request the following information:\n{information_requested}\n\nDate: {date}\nSignature: {applicant_name}"},
+    "wage_complaint": {"required_fields": ["complainant_name", "employer_name", "amount_due", "work_period"], "title": "Complaint Regarding Unpaid Wages", "body": "I, {complainant_name}, state that {employer_name} has not paid wages of {amount_due} for {work_period}. I request appropriate action and payment of the due amount.\n\nDate: {date}\nSignature: {complainant_name}"},
+    "consumer_complaint": {"required_fields": ["complainant_name", "seller_name", "issue", "relief_requested"], "title": "Consumer Complaint", "body": "I, {complainant_name}, have a complaint against {seller_name}.\nIssue: {issue}\nRelief requested: {relief_requested}\n\nDate: {date}\nSignature: {complainant_name}"},
+    "legal_notice": {"required_fields": ["sender_name", "recipient_name", "facts", "demand"], "title": "Legal Notice", "body": "From: {sender_name}\nTo: {recipient_name}\n\nFacts: {facts}\n\nYou are requested to: {demand}\n\nDate: {date}\nSignature: {sender_name}"},
+}
