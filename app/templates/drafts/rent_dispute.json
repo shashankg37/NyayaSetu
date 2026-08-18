@@ -1,0 +1,12 @@
+{
+  "doc_type": "rent_dispute",
+  "required_fields": [
+    "tenant_name",
+    "landlord_name",
+    "property_address",
+    "issue",
+    "date",
+    "contact"
+  ]
+}
+

@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: nyaya-setu-ai
+Version: 0.1.0
+Summary: AI-only scaffold for Nyaya Setu
+Requires-Python: >=3.10
