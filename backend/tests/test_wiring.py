@@ -60,7 +60,7 @@ class TestAIPackageWiring:
         Test that backend's retrieve() calls the real AI package's retrieve().
         
         This proves:
-        - The import 'from nyaya_setu_ai.ai_stubs.retrieval import retrieve' works
+        - The import 'from app.ai.ai_stubs.retrieval import retrieve' works
         - The function is callable
         - It's not returning the old hardcoded mock data
         """
@@ -162,10 +162,10 @@ class TestAIPackageWiring:
 class TestAIPackageImports:
     """Verify that the imports from the real AI package work."""
 
-    def test_can_import_from_nyaya_setu_ai(self):
-        """Test that nyaya_setu_ai package is importable."""
+    def test_can_import_from_backend_ai_package(self):
+        """Test that the backend AI package is importable."""
         try:
-            from nyaya_setu_ai.graph import (
+            from app.ai.graph import (
                 run_query_pipeline,
                 run_query_pipeline_with_audio,
                 run_query_pipeline_with_document,
@@ -177,16 +177,16 @@ class TestAIPackageImports:
             assert callable(run_query_pipeline_with_document)
             assert callable(get_missing_fields)
         except ImportError as e:
-            pytest.skip(f"AI package not installed: {e}")
+            pytest.skip(f"Backend AI package not available: {e}")
 
     def test_backend_stubs_import_real_ai(self):
         """Verify that backend ai_stubs have the real imports in their source."""
         import inspect
         
-        # Check that retrieval.py imports from nyaya_setu_ai
+        # Check that the backend AI module contains the real retrieval implementation.
         source = inspect.getsource(retrieval.retrieve)
-        assert 'nyaya_setu_ai' in source or 'ai_retrieve' in source, \
-            "Backend retrieval should import from nyaya_setu_ai"
+        assert '_build_dense_candidates' in source or '_rerank' in source, \
+            "Backend retrieval should use the in-repo hybrid retrieval implementation"
 
 
 if __name__ == "__main__":

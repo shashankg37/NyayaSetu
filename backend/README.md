@@ -1,22 +1,40 @@
-# Nyaya Setu backend
+# Nyaya Setu Backend
 
-This is the compact, demo-ready backend for Nyaya Setu. It provides accounts, safe file handling, legal-document drafts, and the API contracts the future AI layer will use.
+This is the production-oriented SIH MVP backend. It keeps the existing FastAPI API contracts and adds the in-repo AI layer under `app/ai`.
 
-## How a request moves
+## Request Flow
 
-A request enters a router in `app/api/v1`. Pydantic checks its shape. The router calls one matching service file, which stores the necessary record and calls a clearly-labelled function in `app/ai_stubs` when AI is needed. The service returns a typed response. The stubs are deliberately realistic mock data, not retrieval, Gemini, OCR, speech, or LangGraph implementations.
+Text, voice, or document input enters a FastAPI router, is stored through the service layer, then moves through the LangGraph pipeline:
 
-For a draft, the flow is real: the backend stores answers, checks required fields, writes both PDF and DOCX, and makes the PDF downloadable. It never invents missing information.
+`input processing -> intent -> hybrid retrieval -> evidence gate -> provider generation -> response`
 
-## Run
+Hybrid retrieval uses Qdrant for semantic search, BM25 for exact legal terms, Reciprocal Rank Fusion for merging, and a sentence-transformers cross-encoder for reranking.
 
-Copy `.env.example` to `.env`, replace `SECRET_KEY`, then run:
+## Run Locally
+
+```bash
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app.main:app --reload
+```
+
+Open `http://localhost:8000/docs`.
+
+## Build The Knowledge Base
+
+```bash
+python scripts/ingest.py
+```
+
+Add official source files to `data/source_docs/` before running ingestion. The script builds the local processed corpus, Qdrant vectors, and BM25 index.
+
+## Docker
 
 ```bash
 docker-compose up --build
 ```
 
-Open `http://localhost:8000/docs`. For a local Python run, set `SECRET_KEY`, install `requirements.txt`, then use `uvicorn app.main:app --reload`.
+Docker uses PostgreSQL for structured data and Qdrant for vector retrieval.
 
 ## Test
 
@@ -24,4 +42,8 @@ Open `http://localhost:8000/docs`. For a local Python run, set `SECRET_KEY`, ins
 pytest
 ```
 
-The test suite uses SQLite only for isolated local tests. Docker uses PostgreSQL, and the migration uses PostgreSQL JSONB fields. Self-registration always creates a `citizen`; the admin-only role endpoint is the only role-change path.
+The local test suite uses SQLite and provider fallbacks so it can run without real API keys.
+
+## Current Boundaries
+
+The MVP includes official-source RAG, document extraction, voice transcription hooks, drafting, auth, and safe fallback behavior. New AI requests require connectivity and configured providers.

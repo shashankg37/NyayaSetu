@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.vision import extract_document as ai_extract_document
+from app.ai.ai_stubs.vision import extract_document as ai_extract_document
 
 
 def extract_document(file_bytes: bytes) -> dict:

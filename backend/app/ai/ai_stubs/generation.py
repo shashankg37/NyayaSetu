@@ -3,30 +3,24 @@ from __future__ import annotations
 from typing import Any
 
 from app.ai.ai_stubs.common import get_threshold
-from app.ai.config import SETTINGS
+from app.ai.llm import generate_json
 
 
 def _fallback_response(query: str, chunks: list[dict[str, Any]], confidence: float) -> dict[str, Any]:
     return {
-        "your_right": (
-            "I could not find a strong enough legal match in the grounded corpus to answer confidently."
-        ),
-        "what_law_says": (
-            "This case needs human review. Please contact your nearest District Legal Services Authority "
-            "or the NALSA helpline for guided assistance."
-        ),
-        "what_this_means": (
-            "The system is not making a legal claim here because the retrieved evidence is too weak."
-        ),
+        "your_right": "I could not find a strong enough legal match in the grounded corpus to answer confidently.",
+        "what_law_says": "This case needs human review. Please contact your nearest District Legal Services Authority or the NALSA helpline for guided assistance.",
+        "what_this_means": "The system is not making a legal claim here because the retrieved evidence is too weak.",
         "what_you_can_do": [
             "Visit or call your local District Legal Services Authority.",
             "Keep any letters, payslips, notices, or messages that support your case.",
             "If this is urgent, ask a lawyer or legal aid clinic to review the facts directly.",
         ],
-        "source": [{"act": "NALSA / DLSA routing", "section": "Legal aid support"}],
+        "source": {"act": "NALSA / DLSA routing", "section": "Legal aid support"},
         "confidence": float(confidence),
         "fallback_used": True,
         "query": query,
+        "next_action": "legal_aid_or_more_information",
     }
 
 
@@ -43,10 +37,11 @@ def _synthesize_from_chunks(query: str, chunks: list[dict[str, Any]]) -> dict[st
             "Review the cited source in full before taking action.",
             "Keep supporting documents ready in case you need legal aid or a claim filing.",
         ],
-        "source": [{"act": act, "section": section}],
+        "source": {"act": act, "section": section},
         "confidence": float(top.get("confidence", 0.0)),
         "fallback_used": False,
         "query": query,
+        "next_action": "review_cited_source",
     }
 
 
@@ -54,80 +49,35 @@ def _build_context(chunks: list[dict[str, Any]]) -> str:
     lines = []
     for idx, chunk in enumerate(chunks[:5], start=1):
         lines.append(
-            f"{idx}. Act: {chunk.get('act', '')}\n"
-            f"Section: {chunk.get('section', '')}\n"
-            f"Topic: {chunk.get('topic', '')}\n"
-            f"Text: {chunk.get('simplified_text') or chunk.get('original_text') or ''}"
+            f"{idx}. Act: {chunk.get('act', '')}\nSection: {chunk.get('section', '')}\nTopic: {chunk.get('topic', '')}\nText: {chunk.get('simplified_text') or chunk.get('original_text') or ''}"
         )
     return "\n\n".join(lines)
 
 
-def _gemini_generate(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
-    if not SETTINGS.gemini_api_key:
-        return None
-    try:
-        from langchain_core.output_parsers import JsonOutputParser  # type: ignore
-        from langchain_core.prompts import ChatPromptTemplate  # type: ignore
-        from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
-    except Exception:
-        return None
-
-    parser = JsonOutputParser()
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a legal assistant for India. Use only the supplied chunks. "
-                "Do not invent law. Cite the act and section for every claim. "
-                "Return valid JSON only."
-            ),
-            (
-                "human",
-                "Question:\n{query}\n\n"
-                "Grounded chunks:\n{context}\n\n"
-                "Return JSON with keys: your_right, what_law_says, what_this_means, "
-                "what_you_can_do, source, confidence, fallback_used.\n"
-                "{format_instructions}",
-            ),
-        ]
+def _provider_generate(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
+    prompt = (
+        "You are Nyaya Setu, an Indian legal-awareness assistant. Use only the supplied chunks. "
+        "Do not invent law. Cite one act and section from the evidence. Return JSON only with keys: "
+        "your_right, what_law_says, what_this_means, what_you_can_do, source, confidence, fallback_used.\n\n"
+        f"Question:\n{query}\n\nGrounded chunks:\n{_build_context(chunks)}"
     )
-    llm = ChatGoogleGenerativeAI(
-        model=SETTINGS.gemini_model,
-        google_api_key=SETTINGS.gemini_api_key,
-        temperature=0,
-    )
-    chain = prompt | llm | parser
-    try:
-        response = chain.invoke(
-            {
-                "query": query,
-                "context": _build_context(chunks),
-                "format_instructions": parser.get_format_instructions(),
-            }
-        )
-        if isinstance(response, dict):
-            return response
-    except Exception:
-        return None
-    return None
+    return generate_json(prompt)
 
 
 def generate_answer(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
-    """Takes the top retrieved chunks and either produces a grounded, cited answer,
-    or a safe fallback pointing to legal aid."""
     if not chunks:
         return _fallback_response(query, chunks, 0.0)
     top_confidence = float(chunks[0].get("confidence", 0.0))
     if top_confidence < get_threshold():
         return _fallback_response(query, chunks, top_confidence)
-    gemini_answer = _gemini_generate(query, chunks)
-    if gemini_answer:
-        gemini_answer.setdefault("confidence", top_confidence)
-        gemini_answer.setdefault("fallback_used", False)
-        gemini_answer.setdefault(
-            "source",
-            [{"act": chunks[0].get("act", "Unknown act"), "section": chunks[0].get("section", "")}],
-        )
-        gemini_answer.setdefault("query", query)
-        return gemini_answer
+    provider_answer = _provider_generate(query, chunks)
+    if provider_answer:
+        provider_answer.setdefault("confidence", top_confidence)
+        provider_answer.setdefault("fallback_used", False)
+        source = provider_answer.get("source")
+        if isinstance(source, list):
+            provider_answer["source"] = source[0] if source else {}
+        provider_answer.setdefault("source", {"act": chunks[0].get("act", "Unknown act"), "section": chunks[0].get("section", "")})
+        provider_answer.setdefault("query", query)
+        return provider_answer
     return _synthesize_from_chunks(query, chunks)

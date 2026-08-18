@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.retrieval import retrieve as ai_retrieve
+from app.ai.ai_stubs.retrieval import retrieve as ai_retrieve
 
 
 def retrieve(query: str) -> list[dict]:

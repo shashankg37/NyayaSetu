@@ -14,6 +14,8 @@ from app.ai.types import PipelineState
 
 def input_processor(state: PipelineState) -> PipelineState:
     text = state.get("text", "") or ""
+    if not text:
+        text = state.get("current_message", "") or ""
     input_type = state.get("input_type", "text")
     if input_type == "audio" and state.get("audio_bytes"):
         text = transcribe(state["audio_bytes"])
@@ -25,6 +27,10 @@ def input_processor(state: PipelineState) -> PipelineState:
         document = state["document"]
         text = str(document.get("retrieval_query") or document.get("extracted_text") or "")
     state["normalized_text"] = normalize_text(text)
+    state["current_message"] = state["normalized_text"]
+    state.setdefault("conversation_history", [])
+    state.setdefault("collected_information", {})
+    state.setdefault("safety_status", "ok")
     return state
 
 
@@ -35,6 +41,9 @@ def intent_classifier(state: PipelineState) -> PipelineState:
 
 def retriever_node(state: PipelineState) -> PipelineState:
     state["chunks"] = retrieve(state.get("normalized_text", ""))
+    state["retrieved_chunks"] = state["chunks"]
+    state["reranked_chunks"] = state["chunks"]
+    state["confidence_score"] = float(state["chunks"][0].get("confidence", 0.0)) if state["chunks"] else 0.0
     return state
 
 
@@ -51,6 +60,9 @@ def output_formatter(state: PipelineState) -> dict[str, Any]:
         "query": state.get("normalized_text", ""),
         "answer": answer,
         "chunks": state.get("chunks", []),
+        "confidence_score": state.get("confidence_score", 0.0),
+        "safety_status": state.get("safety_status", "ok"),
+        "next_action": answer.get("next_action") or state.get("next_action"),
     }
     if document is not None:
         result["document"] = document
@@ -149,4 +161,3 @@ def get_missing_fields(doc_type: str, known_fields: dict) -> list[str]:
         List of field names that are still required.
     """
     return missing_fields(doc_type, known_fields)
-

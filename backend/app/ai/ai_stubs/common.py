@@ -3,11 +3,11 @@ from __future__ import annotations
 from functools import lru_cache
 import json
 import math
+import os
 import re
 from typing import Any
 
 from app.ai.config import SETTINGS
-
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9]+", re.UNICODE)
 
@@ -23,8 +23,7 @@ def tokenize(text: str) -> list[str]:
 def simple_embedding(text: str, dimensions: int = 128) -> list[float]:
     vector = [0.0] * dimensions
     for token in tokenize(text):
-        bucket = hash(token) % dimensions
-        vector[bucket] += 1.0
+        vector[hash(token) % dimensions] += 1.0
     norm = math.sqrt(sum(value * value for value in vector)) or 1.0
     return [value / norm for value in vector]
 
@@ -50,9 +49,8 @@ def safe_json_loads(text: str) -> dict[str, Any] | None:
         start = candidate.find("{")
         end = candidate.rfind("}")
         if start != -1 and end != -1 and end > start:
-            fragment = candidate[start : end + 1]
             try:
-                return json.loads(fragment)
+                return json.loads(candidate[start : end + 1])
             except json.JSONDecodeError:
                 continue
     return None
@@ -112,16 +110,10 @@ def get_threshold() -> float:
     return SETTINGS.confidence_threshold
 
 
-def extract_first_number(text: str) -> str | None:
-    match = re.search(r"\b(\d+)\b", text)
-    return match.group(1) if match else None
-
-
 def score_overlap(query: str, candidate: str) -> float:
     q_tokens = set(tokenize(query))
     c_tokens = set(tokenize(candidate))
     if not q_tokens or not c_tokens:
         return 0.0
-    intersection = len(q_tokens & c_tokens)
-    return intersection / max(1, len(q_tokens))
+    return len(q_tokens & c_tokens) / max(1, len(q_tokens))
 

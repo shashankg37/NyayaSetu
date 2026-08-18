@@ -5,48 +5,19 @@ from functools import lru_cache
 from typing import Any
 import math
 
-from app.ai.ai_stubs.common import cosine_similarity, score_overlap, simple_embedding
+from app.ai.ai_stubs.common import cosine_similarity, score_overlap, simple_embedding, tokenize
 from app.ai.config import CORPUS_PATH, QDRANT_DIR, SETTINGS
-from app.ai.knowledge_base.store import load_json_records, load_seed_records, make_source_label, record_text
+from app.ai.knowledge_base.store import load_json_records, load_pickle, load_seed_records, make_source_label, record_text
 
 
 def _load_records() -> list[dict[str, Any]]:
     records = load_json_records(CORPUS_PATH)
-    if records:
-        return records
-    return load_seed_records()
+    return records or load_seed_records()
 
 
 @lru_cache(maxsize=1)
 def _records_cache() -> tuple[dict[str, Any], ...]:
     return tuple(_load_records())
-
-
-@lru_cache(maxsize=1)
-def _documents_cache() -> tuple[Any, ...]:
-    try:
-        from langchain_core.documents import Document  # type: ignore
-    except Exception:
-        return tuple(dict(record) for record in _records_cache())
-
-    documents = []
-    for record in _records_cache():
-        metadata = {key: value for key, value in record.items() if key != "embedding"}
-        documents.append(
-            Document(
-                page_content=record.get("simplified_text") or record.get("original_text") or "",
-                metadata=metadata,
-            )
-        )
-    return tuple(documents)
-
-
-class _FallbackEmbeddings:
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [simple_embedding(text) for text in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return simple_embedding(text)
 
 
 @lru_cache(maxsize=1)
@@ -59,7 +30,24 @@ def _embedding_backend() -> Any:
             encode_kwargs={"normalize_embeddings": True},
         )
     except Exception:
-        return _FallbackEmbeddings()
+        return None
+
+
+def _embed_text(text: str) -> list[float]:
+    backend = _embedding_backend()
+    if backend is not None:
+        try:
+            return list(backend.embed_query(text))
+        except Exception:
+            pass
+    try:
+        from sentence_transformers import SentenceTransformer  # type: ignore
+
+        model = SentenceTransformer(SETTINGS.embedding_model)
+        vector = model.encode([text], normalize_embeddings=True)[0]
+        return vector.tolist() if hasattr(vector, "tolist") else list(vector)
+    except Exception:
+        return simple_embedding(text)
 
 
 def _document_to_record(document: Any) -> dict[str, Any]:
@@ -72,18 +60,14 @@ def _document_to_record(document: Any) -> dict[str, Any]:
 
 
 def _manual_dense_search(query: str, top_k: int) -> list[dict[str, Any]]:
-    query_vector = _embedding_backend().embed_query(query)
+    query_vector = _embed_text(query)
     scored = []
     for record in _records_cache():
         text = record_text(record)
-        vector = record.get("embedding") or _embedding_backend().embed_query(text)
-        score = cosine_similarity(query_vector, vector)
-        scored.append((score, record))
+        vector = record.get("embedding") or _embed_text(text)
+        scored.append((cosine_similarity(query_vector, vector), record))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [
-        {**dict(record), "dense_score": float(score), "retrieval_score": float(score)}
-        for score, record in scored[:top_k]
-    ]
+    return [{**dict(record), "dense_score": float(score), "retrieval_score": float(score)} for score, record in scored[:top_k]]
 
 
 def _build_dense_candidates(query: str, top_k: int = 20) -> list[dict[str, Any]]:
@@ -91,20 +75,18 @@ def _build_dense_candidates(query: str, top_k: int = 20) -> list[dict[str, Any]]
         from langchain_community.vectorstores import Qdrant as LCQdrant  # type: ignore
 
         if QDRANT_DIR.exists():
+            embeddings = _embedding_backend()
+            if embeddings is None:
+                raise RuntimeError("LangChain embeddings are unavailable")
             store = LCQdrant(
                 client=None,
                 collection_name=SETTINGS.qdrant_collection,
-                embeddings=_embedding_backend(),
+                embeddings=embeddings,
                 path=str(QDRANT_DIR),
             )
-            results = store.similarity_search_with_score(query, k=top_k)
             return [
-                {
-                    **_document_to_record(doc),
-                    "dense_score": float(score),
-                    "retrieval_score": float(score),
-                }
-                for doc, score in results
+                {**_document_to_record(doc), "dense_score": float(score), "retrieval_score": float(score)}
+                for doc, score in store.similarity_search_with_score(query, k=top_k)
             ]
     except Exception:
         pass
@@ -116,42 +98,24 @@ def _manual_bm25_search(query: str, top_k: int) -> list[dict[str, Any]]:
     for record in _records_cache():
         scored.append((score_overlap(query, record_text(record)), record))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [
-        {**dict(record), "bm25_score": float(score), "retrieval_score": float(score)}
-        for score, record in scored[:top_k]
-    ]
-
-
-@lru_cache(maxsize=1)
-def _bm25_retriever() -> Any:
-    """Build and cache the BM25 retriever to avoid rebuilding on every query."""
-    try:
-        from langchain_community.retrievers import BM25Retriever  # type: ignore
-
-        return BM25Retriever.from_documents(list(_documents_cache()))
-    except Exception:
-        return None
+    return [{**dict(record), "bm25_score": float(score), "retrieval_score": float(score)} for score, record in scored[:top_k]]
 
 
 def _build_bm25_candidates(query: str, top_k: int = 20) -> list[dict[str, Any]]:
     try:
-        retriever = _bm25_retriever()
-        if retriever is None:
-            return _manual_bm25_search(query, top_k)
-        
+        from langchain_community.retrievers import BM25Retriever  # type: ignore
+        from langchain_core.documents import Document  # type: ignore
+
+        docs = [
+            Document(page_content=record.get("simplified_text") or record.get("original_text") or "", metadata=dict(record))
+            for record in _records_cache()
+        ]
+        retriever = BM25Retriever.from_documents(docs)
         retriever.k = top_k
-        documents = retriever.invoke(query)
-        results: list[dict[str, Any]] = []
-        for rank, document in enumerate(documents, start=1):
-            score = 1.0 / rank
-            results.append(
-                {
-                    **_document_to_record(document),
-                    "bm25_score": float(score),
-                    "retrieval_score": float(score),
-                }
-            )
-        return results
+        return [
+            {**_document_to_record(doc), "bm25_score": float(1.0 / rank), "retrieval_score": float(1.0 / rank)}
+            for rank, doc in enumerate(retriever.invoke(query), start=1)
+        ]
     except Exception:
         return _manual_bm25_search(query, top_k)
 
@@ -186,25 +150,13 @@ def _manual_rerank(query: str, candidates: list[dict[str, Any]], top_k: int) -> 
     return scored_candidates[:top_k]
 
 
-@lru_cache(maxsize=1)
-def _cross_encoder() -> Any:
-    """Build and cache the cross-encoder model to avoid reloading on every query."""
-    try:
-        from sentence_transformers import CrossEncoder  # type: ignore
-
-        return CrossEncoder(SETTINGS.cross_encoder_model)
-    except Exception:
-        return None
-
-
 def _rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> list[dict[str, Any]]:
     if not candidates:
         return []
     try:
-        model = _cross_encoder()
-        if model is None:
-            return _manual_rerank(query, candidates, top_k)
-        
+        from sentence_transformers import CrossEncoder  # type: ignore
+
+        model = CrossEncoder(SETTINGS.cross_encoder_model)
         pairs = [(query, record.get("simplified_text") or record_text(record)) for record in candidates]
         scores = model.predict(pairs)
         scored_candidates = []
@@ -221,7 +173,6 @@ def _rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> lis
 
 
 def retrieve(query: str) -> list[dict[str, Any]]:
-    """Returns the top relevant legal chunks for a query, each with its source metadata."""
     query = query.strip()
     if not query:
         return []

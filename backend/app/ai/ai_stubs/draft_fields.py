@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
 import json
+from typing import Any
 
 from app.ai.config import TEMPLATES_DIR
 from app.ai.knowledge_base.store import normalize_key
@@ -33,8 +32,6 @@ def _field_present(value: Any) -> bool:
 
 
 def missing_fields(doc_type: str, known_fields: dict) -> list[str]:
-    """Given a document type and what's already been provided, returns the list of
-    required fields still missing."""
     template = _load_template(doc_type)
     if not template:
         return []

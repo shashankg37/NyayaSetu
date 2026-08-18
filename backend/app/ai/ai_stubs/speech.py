@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 import base64
-import json
 import os
 
 import requests
@@ -54,7 +52,6 @@ def _bhashini_transcribe(audio_bytes: bytes) -> str | None:
 def _local_whisper_fallback(audio_bytes: bytes) -> str | None:
     try:
         import tempfile
-        from pathlib import Path
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
             handle.write(audio_bytes)
@@ -80,15 +77,9 @@ def _translate_if_needed(text: str) -> str:
     headers = {"Content-Type": "application/json"}
     if SETTINGS.bhashini_api_key:
         headers["Authorization"] = f"Bearer {SETTINGS.bhashini_api_key}"
-    payload = {
-        "text": text,
-        "source_language": language,
-        "target_language": SETTINGS.bhashini_target_lang,
-    }
+    payload = {"text": text, "source_language": language, "target_language": SETTINGS.bhashini_target_lang}
     try:
-        response = requests.post(
-            SETTINGS.bhashini_translate_url, headers=headers, json=payload, timeout=90
-        )
+        response = requests.post(SETTINGS.bhashini_translate_url, headers=headers, json=payload, timeout=90)
         response.raise_for_status()
         data = response.json()
         return str(data.get("translated_text") or data.get("text") or text)
@@ -97,16 +88,10 @@ def _translate_if_needed(text: str) -> str:
 
 
 def transcribe(audio_bytes: bytes) -> str:
-    """Transcribes voice input to text, translating to a working language if needed."""
     mock_transcript = os.getenv("BHASHINI_MOCK_TRANSCRIPT", "").strip()
     if mock_transcript:
         return mock_transcript
-    transcript = _bhashini_transcribe(audio_bytes)
+    transcript = _bhashini_transcribe(audio_bytes) or _local_whisper_fallback(audio_bytes)
     if not transcript:
-        transcript = _local_whisper_fallback(audio_bytes)
-    if not transcript:
-        raise RuntimeError(
-            "No speech provider is configured. Set BHASHINI_API_URL or BHASHINI_MOCK_TRANSCRIPT."
-        )
+        return ""
     return _translate_if_needed(transcript)
-

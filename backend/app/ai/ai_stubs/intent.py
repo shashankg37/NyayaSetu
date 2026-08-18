@@ -4,7 +4,6 @@ from app.ai.ai_stubs.common import tokenize
 
 
 def classify_intent(text: str) -> str:
-    """Returns one of: rights_query, document_draft_request, procedure_query."""
     lowered = text.lower()
     draft_markers = {
         "draft",
@@ -17,17 +16,7 @@ def classify_intent(text: str) -> str:
         "agreement",
         "affidavit",
     }
-    procedure_markers = {
-        "how to",
-        "procedure",
-        "file",
-        "appeal",
-        "step",
-        "process",
-        "where do i",
-        "where to",
-        "what is the procedure",
-    }
+    procedure_markers = {"how to", "procedure", "file", "appeal", "step", "process", "where to"}
     if any(marker in lowered for marker in draft_markers):
         return "document_draft_request"
     if any(marker in lowered for marker in procedure_markers):

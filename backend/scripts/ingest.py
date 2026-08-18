@@ -8,6 +8,7 @@ import re
 
 from app.ai.ai_stubs.common import chunk_text, heuristic_simplify, normalize_text
 from app.ai.config import CORPUS_PATH, KB_DIR, QDRANT_DIR, SAMPLE_CORPUS_PATH, SETTINGS
+from app.ai.llm import generate_json
 from app.ai.knowledge_base.store import (
     ChunkRecord,
     ensure_kb_dirs,
@@ -67,7 +68,17 @@ def _source_to_metadata(path: Path, text: str) -> dict[str, str]:
         topic = "family"
     elif any(marker in lower for marker in ["consumer", "purchase", "refund"]):
         topic = "consumer"
-    return {"source": path.stem, "topic": topic, "source_url": path.as_uri()}
+    return {
+        "document_id": path.stem,
+        "document_name": path.name,
+        "source": path.stem,
+        "topic": topic,
+        "legal_domain": topic,
+        "beneficiary": "citizen",
+        "jurisdiction": "india",
+        "language": "en",
+        "source_url": path.as_uri(),
+    }
 
 
 def _build_records_from_text(source_name: str, text: str, metadata: dict[str, str]) -> list[dict[str, Any]]:
@@ -77,10 +88,16 @@ def _build_records_from_text(source_name: str, text: str, metadata: dict[str, st
         simplified = _simplify_chunk(chunk)
         record = ChunkRecord(
             chunk_id=f"{source_name}_{index}",
+            document_id=metadata["document_id"],
+            document_name=metadata["document_name"],
             source=metadata["source"],
             act=source_name,
             section=f"Chunk {index}",
             topic=metadata["topic"],
+            legal_domain=metadata["legal_domain"],
+            beneficiary=metadata["beneficiary"],
+            jurisdiction=metadata["jurisdiction"],
+            language=metadata["language"],
             original_text=chunk,
             simplified_text=simplified,
             source_url=metadata["source_url"],
@@ -91,26 +108,14 @@ def _build_records_from_text(source_name: str, text: str, metadata: dict[str, st
 
 
 def _simplify_chunk(text: str) -> str:
-    try:
-        import google.generativeai as genai  # type: ignore
-    except Exception:
-        return heuristic_simplify(text)
-    api_key = getattr(SETTINGS, "gemini_api_key", "")
-    if not api_key:
-        return heuristic_simplify(text)
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(SETTINGS.gemini_model)
-        prompt = (
-            "Rewrite this legal text in plain language in one or two sentences. "
-            "Do not invent new facts.\n\n"
-            f"Text: {text}"
-        )
-        response = model.generate_content(prompt)
-        simplified = getattr(response, "text", "").strip()
-        return simplified or heuristic_simplify(text)
-    except Exception:
-        return heuristic_simplify(text)
+    prompt = (
+        "Rewrite this legal text in plain language in one or two sentences. "
+        "Return JSON with key simplified_text. Do not invent facts.\n\n"
+        f"Text: {text}"
+    )
+    response = generate_json(prompt)
+    simplified = str((response or {}).get("simplified_text", "")).strip()
+    return simplified or heuristic_simplify(text)
 
 
 def _embed_record(text: str) -> list[float]:
@@ -121,7 +126,7 @@ def _embed_record(text: str) -> list[float]:
         vector = model.encode([text], normalize_embeddings=True)[0]
         return vector.tolist() if hasattr(vector, "tolist") else list(vector)
     except Exception:
-        from app.ai_stubs.common import simple_embedding
+        from app.ai.ai_stubs.common import simple_embedding
 
         return simple_embedding(text)
 
@@ -159,7 +164,7 @@ def _build_bm25(records: list[dict[str, Any]]) -> None:
         from rank_bm25 import BM25Okapi  # type: ignore
     except Exception:
         return
-    from app.ai_stubs.common import tokenize
+    from app.ai.ai_stubs.common import tokenize
 
     corpus = [tokenize(f"{record.get('original_text', '')} {record.get('simplified_text', '')}") for record in records]
     bm25 = BM25Okapi(corpus)
@@ -222,4 +227,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.draft_fields import missing_fields as ai_missing_fields
+from app.ai.ai_stubs.draft_fields import missing_fields as ai_missing_fields
 
 
 def missing_fields(doc_type: str, known_fields: dict) -> list[str]:

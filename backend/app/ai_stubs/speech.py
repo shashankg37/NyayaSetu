@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.speech import transcribe as ai_transcribe
+from app.ai.ai_stubs.speech import transcribe as ai_transcribe
 
 
 def transcribe(audio_bytes: bytes) -> str:

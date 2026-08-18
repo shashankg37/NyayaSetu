@@ -38,6 +38,12 @@ class Settings:
         "CROSS_ENCODER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     )
     confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
+    llm_provider: str = os.getenv("LLM_PROVIDER", "local").lower()
+    llm_model: str = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    hf_api_url: str = os.getenv("HF_API_URL", "https://api-inference.huggingface.co/models")
+    hf_api_key: str = os.getenv("HF_API_KEY", "")
+    vision_provider: str = os.getenv("VISION_PROVIDER", os.getenv("LLM_PROVIDER", "local")).lower()
+    vision_model: str = os.getenv("VISION_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct")
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     working_language: str = os.getenv("WORKING_LANGUAGE", "en")

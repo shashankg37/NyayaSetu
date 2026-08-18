@@ -12,10 +12,16 @@ from app.ai.config import BM25_PATH, CORPUS_PATH, KB_DIR, SAMPLE_CORPUS_PATH
 @dataclass
 class ChunkRecord:
     chunk_id: str
+    document_id: str
+    document_name: str
     source: str
     act: str
     section: str
     topic: str
+    legal_domain: str
+    beneficiary: str
+    jurisdiction: str
+    language: str
     original_text: str
     simplified_text: str
     source_url: str = ""
@@ -80,4 +86,3 @@ def make_source_label(record: dict[str, Any]) -> str:
     if section:
         return f"{act} - {section}"
     return act
-

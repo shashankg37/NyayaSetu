@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.intent import classify_intent as ai_classify_intent
+from app.ai.ai_stubs.intent import classify_intent as ai_classify_intent
 
 
 def classify_intent(text: str) -> str:

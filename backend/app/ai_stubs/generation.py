@@ -1,4 +1,4 @@
-from nyaya_setu_ai.ai_stubs.generation import generate_answer as ai_generate_answer
+from app.ai.ai_stubs.generation import generate_answer as ai_generate_answer
 
 
 def generate_answer(query: str, chunks: list[dict]) -> dict:
