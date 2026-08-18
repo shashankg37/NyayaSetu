@@ -86,3 +86,67 @@ def run_pipeline(state: PipelineState) -> dict[str, Any]:
     state = generation_node(state)
     return output_formatter(state)
 
+
+# ============================================================================
+# CLEAN ENTRY POINTS FOR BACKEND INTEGRATION
+# ============================================================================
+# The backend should call only these functions; they wrap the internal pipeline.
+
+
+def run_query_pipeline(query: str, input_type: str = "text") -> dict[str, Any]:
+    """
+    Runs the full AI pipeline (intent → retrieve → generate) and returns
+    a plain dict matching the standard answer shape.
+    
+    Args:
+        query: The user's question or text input.
+        input_type: One of "text", "audio", "image" (default: "text").
+    
+    Returns:
+        A dict with keys: intent, query, answer, chunks, (optionally: document).
+    """
+    state: PipelineState = {"text": query, "input_type": input_type}
+    return run_pipeline(state)
+
+
+def run_query_pipeline_with_audio(audio_bytes: bytes) -> dict[str, Any]:
+    """
+    Runs the full AI pipeline starting from audio transcription.
+    
+    Args:
+        audio_bytes: Raw audio bytes to transcribe and process.
+    
+    Returns:
+        A dict with keys: intent, query, answer, chunks.
+    """
+    state: PipelineState = {"audio_bytes": audio_bytes, "input_type": "audio", "text": ""}
+    return run_pipeline(state)
+
+
+def run_query_pipeline_with_document(file_bytes: bytes) -> dict[str, Any]:
+    """
+    Runs the full AI pipeline starting from document extraction.
+    
+    Args:
+        file_bytes: Raw file bytes to extract and process.
+    
+    Returns:
+        A dict with keys: intent, query, answer, chunks, document.
+    """
+    state: PipelineState = {"image_bytes": file_bytes, "input_type": "image", "text": ""}
+    return run_pipeline(state)
+
+
+def get_missing_fields(doc_type: str, known_fields: dict) -> list[str]:
+    """
+    Returns a list of fields still needed to complete a legal document draft.
+    
+    Args:
+        doc_type: Type of document (e.g., "legal_notice", "wage_complaint").
+        known_fields: Dict of fields already provided by the user.
+    
+    Returns:
+        List of field names that are still required.
+    """
+    return missing_fields(doc_type, known_fields)
+

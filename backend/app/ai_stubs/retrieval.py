@@ -1,4 +1,11 @@
+from nyaya_setu_ai.ai_stubs.retrieval import retrieve as ai_retrieve
+
+
 def retrieve(query: str) -> list[dict]:
-    """Later this will retrieve authoritative legal passages using hybrid RAG."""
-    # TODO: replace with real AI logic
-    return [{"text": "Workers are entitled to timely payment of wages.", "source": "NALSA legal awareness material", "page": 4}]
+    """Retrieve authoritative legal passages using the real AI package's retrieval system."""
+    try:
+        return ai_retrieve(query)
+    except Exception as e:
+        # Fallback if the AI service is unavailable
+        print(f"Error in AI retrieval: {e}")
+        return []

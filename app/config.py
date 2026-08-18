@@ -5,6 +5,16 @@ from pathlib import Path
 import os
 
 
+# Load environment variables from root .env if it exists
+try:
+    from dotenv import load_dotenv
+    root_env = Path(__file__).resolve().parent.parent / ".env"
+    if root_env.exists():
+        load_dotenv(root_env)
+except ImportError:
+    pass
+
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 KB_DIR = DATA_DIR / "knowledge_base"
@@ -17,6 +27,7 @@ BM25_PATH = KB_DIR / "bm25.pkl"
 
 @dataclass(frozen=True)
 class Settings:
+    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
     qdrant_collection: str = os.getenv("QDRANT_COLLECTION", "nyaya_setu_chunks")
     embedding_model: str = os.getenv(
         "EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

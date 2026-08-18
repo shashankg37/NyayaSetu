@@ -1,4 +1,11 @@
+from nyaya_setu_ai.ai_stubs.speech import transcribe as ai_transcribe
+
+
 def transcribe(audio_bytes: bytes) -> str:
-    """Later this will transcribe Indian-language audio through the speech layer."""
-    # TODO: replace with real AI logic
-    return "My employer has not paid my wages. What can I do?"
+    """Transcribe Indian-language audio using the real AI package."""
+    try:
+        return ai_transcribe(audio_bytes)
+    except Exception as e:
+        # Fallback if the AI service is unavailable
+        print(f"Error in AI transcription: {e}")
+        return ""

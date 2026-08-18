@@ -1,58 +1,66 @@
+version: '3.8'
+
 services:
-  # PostgreSQL database
-  db:
+  # PostgreSQL database for backend
+  postgres:
     image: postgres:16-alpine
-    container_name: nyaya_postgres_backend
+    container_name: nyaya_postgres
     environment:
       POSTGRES_DB: nyaya
       POSTGRES_USER: nyaya
       POSTGRES_PASSWORD: nyaya
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nyaya -d nyaya"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
-      - backend_network
+      - nyaya_network
 
-  # Qdrant vector database (required by AI package)
+  # Qdrant vector database for AI retrieval
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: nyaya_qdrant_backend
+    container_name: nyaya_qdrant
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
       - "6333:6333"
+    environment:
+      QDRANT_API_KEY: ""  # Set if you want authentication
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
-      - backend_network
+      - nyaya_network
 
-  # FastAPI backend with AI package
-  api:
-    build: .
-    container_name: nyaya_backend_api
+  # FastAPI backend (includes AI package in-process)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nyaya_backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://nyaya:nyaya@db:5432/nyaya
+      DATABASE_URL: postgresql+psycopg://nyaya:nyaya@postgres:5432/nyaya
       QDRANT_URL: http://qdrant:6333
     ports:
       - "8000:8000"
     volumes:
-      - ./storage:/app/storage
-      - ../app:/app/../app  # Mount AI package for editable mode
+      - ./backend/storage:/app/storage
+      - ./app:/app/../app  # Mount AI package in editable mode
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       qdrant:
         condition: service_healthy
     networks:
-      - backend_network
+      - nyaya_network
     command: >
       sh -c "
       echo 'Running database migrations...' &&
@@ -66,6 +74,5 @@ volumes:
   qdrant_data:
 
 networks:
-  backend_network:
+  nyaya_network:
     driver: bridge
-
