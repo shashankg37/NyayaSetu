@@ -1,0 +1,12 @@
+{
+  "doc_type": "legal_notice",
+  "required_fields": [
+    "sender_name",
+    "recipient_name",
+    "issue",
+    "deadline_days",
+    "date",
+    "contact"
+  ]
+}
+
