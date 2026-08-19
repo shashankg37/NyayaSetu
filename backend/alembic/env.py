@@ -1,7 +1,7 @@
 from alembic import context
-from app.core.config import get_settings
-from app.db import Base
-import app.models
+from backend.config import get_settings
+from backend.database import Base
+import backend.models.database
 config = context.config
 config.set_main_option('sqlalchemy.url', get_settings().database_url)
 target_metadata = Base.metadata

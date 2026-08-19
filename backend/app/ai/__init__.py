@@ -1,2 +1,0 @@
-"""Nyaya Setu AI package."""
-

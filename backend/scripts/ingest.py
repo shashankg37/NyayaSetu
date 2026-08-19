@@ -11,14 +11,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from app.ai.knowledge_base.store import ensure_kb_dirs, load_seed_records, save_json_records
-from app.ingestion.chunker import chunk_document, LegalChunk
-from app.ingestion.classifier import classify_batch
-from app.ingestion.cleaner import clean_pages
-from app.ingestion.embedder import embed_texts
-from app.ingestion.indexer import index_bm25, index_qdrant
-from app.ingestion.loaders import load_directory, RawDocument
-from app.ingestion.metadata import enrich_chunks
+from backend.ai.knowledge_base.store import ensure_kb_dirs, load_seed_records, save_json_records
+from backend.rag.ingestion.chunker import chunk_document, LegalChunk
+from backend.rag.ingestion.classifier import classify_batch
+from backend.rag.ingestion.cleaner import clean_pages
+from backend.rag.ingestion.embedder import embed_texts
+from backend.rag.ingestion.indexer import index_bm25, index_qdrant
+from backend.rag.ingestion.loaders import load_directory, RawDocument
+from backend.rag.ingestion.metadata import enrich_chunks
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
