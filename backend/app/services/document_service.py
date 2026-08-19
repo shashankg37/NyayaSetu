@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from app.ai.ai_stubs.vision import extract_document
+from app.ai.vision import extract_document
 from app.models import AuditLog, UploadedDocument
 from app.services.query_service import session_for
 from app.services.storage_service import storage

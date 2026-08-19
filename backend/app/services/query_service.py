@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.ai.ai_stubs.generation import generate_answer
 from app.ai.ai_stubs.intent import classify_intent
 from app.ai.ai_stubs.retrieval import retrieve
-from app.ai.ai_stubs.speech import transcribe
+from app.ai.speech import transcribe
 from app.models import InputType, Query, Response, Session as UserSession
 
 def session_for(db: Session, session_id: int | None, user_id: int | None = None) -> UserSession:

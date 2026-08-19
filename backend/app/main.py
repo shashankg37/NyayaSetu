@@ -38,4 +38,10 @@ def startup() -> None:
 def health():
     with engine.connect() as connection: connection.execute(text('SELECT 1'))
     return {'status': 'ok', 'version': app.version}
-for router in (auth.router, users.router, query.router, documents.router, draft.router, timeline.router, chat.router, voice.router): app.include_router(router, prefix=settings.api_v1_str)
+
+for router in (auth.router, users.router, query.router, documents.router, draft.router, timeline.router):
+    app.include_router(router, prefix=settings.api_v1_str)
+
+app.include_router(chat.router, prefix=f'{settings.api_v1_str}/chat', tags=['chat'])
+app.include_router(voice.router, prefix=f'{settings.api_v1_str}/voice', tags=['voice'])
+

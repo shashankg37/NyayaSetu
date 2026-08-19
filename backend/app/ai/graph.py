@@ -10,8 +10,8 @@ from app.ai.ai_stubs.common import normalize_text
 from app.ai.ai_stubs.draft_fields import missing_fields
 from app.ai.ai_stubs.generation import generate_answer as legacy_generate_answer
 from app.ai.ai_stubs.intent import classify_intent
-from app.ai.ai_stubs.speech import transcribe
-from app.ai.ai_stubs.vision import extract_document
+from app.ai.speech import transcribe
+from app.ai.vision import extract_document
 from app.ai.langid import detect_language
 from app.ai.llm import get_provider
 from app.ai.safety import check_safety

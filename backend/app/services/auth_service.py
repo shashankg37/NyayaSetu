@@ -1,7 +1,6 @@
 from datetime import timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from app.ai.ai_stubs.intent import classify_intent
 from app.core.config import get_settings
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.models import AuditLog, Role, User

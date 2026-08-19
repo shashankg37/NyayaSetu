@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db
 from app.db import get_db
 from app.ai.graph import run_query_pipeline
 from app.services.conversation_service import (
