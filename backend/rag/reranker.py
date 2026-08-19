@@ -16,10 +16,18 @@ def _load_cross_encoder():
     try:
         from sentence_transformers import CrossEncoder  # type: ignore
 
-        model_name = SETTINGS.cross_encoder_model
-        model = CrossEncoder(model_name)
-        logger.info("Loaded cross-encoder: %s", model_name)
-        return model
+        candidates = [SETTINGS.cross_encoder_model, "cross-encoder/ms-marco-MiniLM-L-6-v2"]
+        last_error: Exception | None = None
+        for model_name in candidates:
+            try:
+                model = CrossEncoder(model_name)
+                logger.info("Loaded cross-encoder: %s", model_name)
+                return model
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                logger.warning("Could not load CrossEncoder %s: %s", model_name, exc)
+        logger.warning("Could not load any CrossEncoder: %s", last_error)
+        return None
     except Exception as e:
         logger.warning("Could not load CrossEncoder: %s", e)
         return None
@@ -68,11 +76,12 @@ def rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> list
         normalized_scores = [1.0 / (1.0 + math.exp(-s)) for s in scores]
 
         # Attach scores and sort
-        for c, s in zip(candidates, normalized_scores):
-            c["confidence"] = float(s)
-
-        candidates.sort(key=lambda x: x.get("confidence", 0.0), reverse=True)
-        return candidates[:top_k]
+        ranked = [dict(c) for c in candidates]
+        for item, score in zip(ranked, normalized_scores):
+            item["confidence"] = float(score)
+            item["rerank_score"] = float(score)
+        ranked.sort(key=lambda x: x.get("confidence", 0.0), reverse=True)
+        return ranked[:top_k]
 
     except Exception as e:
         logger.error("Reranking failed: %s", e)

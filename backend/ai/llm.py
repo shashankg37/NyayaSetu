@@ -1,7 +1,6 @@
 """Provider-agnostic LLM interface for NyayaSetu.
 
-Supports HuggingFace Inference API (Qwen), Google Gemini (fallback),
-and a local stub provider.
+Primary path: Hugging Face Inference (Qwen). Gemini remains an optional fallback.
 """
 from __future__ import annotations
 
@@ -16,6 +15,10 @@ from backend.config import SETTINGS
 logger = logging.getLogger(__name__)
 
 
+class LLMUnavailableError(RuntimeError):
+    """Raised when no configured inference provider can generate a response."""
+
+
 def safe_json_loads(text: str) -> dict[str, Any] | None:
     if not text:
         return None
@@ -28,132 +31,184 @@ def safe_json_loads(text: str) -> dict[str, Any] | None:
         end = candidate.rfind("}")
         if start != -1 and end != -1 and end > start:
             try:
-                return json.loads(candidate[start : end + 1])
+                parsed = json.loads(candidate[start : end + 1])
             except json.JSONDecodeError:
                 continue
+            if isinstance(parsed, dict):
+                return parsed
     return None
 
 
+def citations_from_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    citations: list[dict[str, Any]] = []
+    seen: set[tuple[Any, Any, Any]] = set()
+    for chunk in chunks:
+        act = chunk.get("act") or chunk.get("document_name") or chunk.get("source")
+        section = chunk.get("section") or None
+        page = chunk.get("page")
+        url = chunk.get("source_url") or None
+        key = (act, section, page)
+        if not act or key in seen:
+            continue
+        seen.add(key)
+        citations.append(
+            {
+                "document_name": chunk.get("document_name") or act,
+                "act": act,
+                "section": section,
+                "page": page,
+                "source_url": url,
+            }
+        )
+    return citations
+
+
 class LLMProvider(Protocol):
-    """Protocol for LLM providers."""
+    def generate(self, prompt: str, **kwargs: Any) -> str | None: ...
+    def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None: ...
 
-    def generate(self, prompt: str, **kwargs: Any) -> str | None:
-        """Generate plain text from a prompt."""
-        ...
 
-    def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
-        """Generate structured JSON from a prompt."""
-        ...
+def _chat_text_from_hf(data: Any) -> str | None:
+    if isinstance(data, list) and data:
+        first = data[0]
+        if isinstance(first, dict):
+            return str(first.get("generated_text") or first.get("text") or "") or None
+    if isinstance(data, dict):
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            message = choices[0].get("message") or {}
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content
+            if isinstance(content, list):
+                parts = [part.get("text", "") for part in content if isinstance(part, dict)]
+                joined = "".join(parts).strip()
+                return joined or None
+        return str(data.get("generated_text") or data.get("text") or "") or None
+    return None
 
 
 class HuggingFaceProvider:
-    """HuggingFace Inference API provider (primary route for Qwen)."""
+    """Hugging Face Inference provider for Qwen."""
 
     def generate(self, prompt: str, **kwargs: Any) -> str | None:
         if not SETTINGS.hf_api_key:
             logger.warning("HF API key missing")
             return None
-            
-        url = f"{SETTINGS.hf_api_url.rstrip('/')}/{SETTINGS.llm_model}"
-        headers = {"Authorization": f"Bearer {SETTINGS.hf_api_key}"}
-        
-        # Merge default params with kwargs
-        params = {"max_new_tokens": 1000, "temperature": 0.1, "return_full_text": False}
-        params.update(kwargs)
-        
-        payload = {
-            "inputs": prompt,
-            "parameters": params,
-        }
-        
+        max_tokens = int(kwargs.get("max_new_tokens") or kwargs.get("max_tokens") or 1000)
+        temperature = float(kwargs.get("temperature", 0.1))
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=90)
-            response.raise_for_status()
-            data = response.json()
-            if isinstance(data, list) and data:
-                return str(data[0].get("generated_text") or "")
-            if isinstance(data, dict):
-                return str(data.get("generated_text") or data.get("text") or "")
-            return None
-        except Exception as e:
-            logger.error("HuggingFace generation failed: %s", e)
-            return None
+            from huggingface_hub import InferenceClient  # type: ignore
+
+            client = InferenceClient(token=SETTINGS.hf_api_key)
+            completion = client.chat.completions.create(
+                model=SETTINGS.llm_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            content = completion.choices[0].message.content
+            return str(content) if content else None
+        except Exception as hub_error:
+            logger.info("HF chat client failed, trying HTTP inference: %s", hub_error)
+
+        headers = {"Authorization": f"Bearer {SETTINGS.hf_api_key}"}
+        urls = [
+            f"{SETTINGS.hf_api_url.rstrip('/')}/{SETTINGS.llm_model}",
+            f"https://api-inference.huggingface.co/models/{SETTINGS.llm_model}",
+        ]
+        payloads = [
+            {
+                "model": SETTINGS.llm_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
+            {
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": max_tokens,
+                    "temperature": temperature,
+                    "return_full_text": False,
+                },
+            },
+        ]
+        for url in urls:
+            for payload in payloads:
+                try:
+                    response = requests.post(url, headers=headers, json=payload, timeout=90)
+                    if response.status_code >= 400:
+                        logger.warning("HF HTTP %s for %s: %s", response.status_code, url, response.text[:300])
+                        continue
+                    text = _chat_text_from_hf(response.json())
+                    if text:
+                        return text
+                except Exception as exc:
+                    logger.error("HuggingFace generation failed: %s", exc)
+        return None
 
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
-        # Prompt engineering for JSON mode with Qwen
-        json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. Do not include markdown blocks like ```json."
+        json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. Do not include markdown fences."
         text = self.generate(json_prompt, **kwargs)
         return safe_json_loads(text or "")
 
 
 class GeminiProvider:
-    """Google Gemini provider (optional fallback)."""
-
     def _get_model(self):
         try:
             import google.generativeai as genai  # type: ignore
+
             genai.configure(api_key=SETTINGS.gemini_api_key)
             return genai.GenerativeModel(SETTINGS.gemini_model)
-        except ImportError:
-            logger.error("google-generativeai not installed")
-            return None
-        except Exception as e:
-            logger.error("Failed to initialize Gemini: %s", e)
+        except Exception as exc:
+            logger.error("Failed to initialize Gemini: %s", exc)
             return None
 
     def generate(self, prompt: str, **kwargs: Any) -> str | None:
         if not SETTINGS.gemini_api_key:
-            logger.warning("Gemini API key missing")
             return None
-            
         model = self._get_model()
         if not model:
             return None
-            
         try:
-            # Handle temperature
-            temp = kwargs.get("temperature", 0.1)
-            config = {"temperature": temp}
-            
-            response = model.generate_content(prompt, generation_config=config)
+            response = model.generate_content(
+                prompt,
+                generation_config={"temperature": kwargs.get("temperature", 0.1)},
+            )
             return getattr(response, "text", "") or ""
-        except Exception as e:
-            logger.error("Gemini generation failed: %s", e)
+        except Exception as exc:
+            logger.error("Gemini generation failed: %s", exc)
             return None
 
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
         if not SETTINGS.gemini_api_key:
             return None
-            
         model = self._get_model()
         if not model:
             return None
-            
         try:
-            temp = kwargs.get("temperature", 0.1)
-            config = {"temperature": temp, "response_mime_type": "application/json"}
-            
-            response = model.generate_content(prompt, generation_config=config)
-            text = getattr(response, "text", "") or ""
-            return safe_json_loads(text)
-        except Exception as e:
-            logger.error("Gemini JSON generation failed: %s", e)
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": kwargs.get("temperature", 0.1),
+                    "response_mime_type": "application/json",
+                },
+            )
+            return safe_json_loads(getattr(response, "text", "") or "")
+        except Exception as exc:
+            logger.error("Gemini JSON generation failed: %s", exc)
             return None
 
 
 class LocalProvider:
-    """Local inference provider (stub for future Ollama/vLLM integration)."""
-
     def generate(self, prompt: str, **kwargs: Any) -> str | None:
-        logger.warning("Local provider not fully implemented. Returning mock response.")
-        return "This is a mock response from the local provider."
+        logger.error("Local provider is not configured for Qwen inference.")
+        return None
 
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
-        logger.warning("Local provider not fully implemented. Returning mock JSON.")
-        return {"mock": True, "message": "Local provider not implemented"}
+        return None
 
 
-# Singleton instances
 _PROVIDERS: dict[str, LLMProvider] = {
     "hf": HuggingFaceProvider(),
     "gemini": GeminiProvider(),
@@ -162,74 +217,57 @@ _PROVIDERS: dict[str, LLMProvider] = {
 
 
 def get_provider(name: str | None = None) -> LLMProvider:
-    """Get the configured or requested LLM provider."""
     provider_name = name or SETTINGS.llm_provider
-    provider = _PROVIDERS.get(provider_name)
-    if not provider:
-        logger.warning("Provider '%s' not found, falling back to 'hf'", provider_name)
-        return _PROVIDERS["hf"]
-    return provider
+    return _PROVIDERS.get(provider_name) or _PROVIDERS["hf"]
 
 
 def generate_json_from_any(prompt: str) -> dict[str, Any] | None:
-    """Generate JSON using primary or fallback providers."""
     provider = get_provider()
-    
-    # Try primary provider
     result = provider.generate_json(prompt)
     if result is not None:
         return result
-        
-    # Try fallbacks
-    fallbacks = ["gemini", "hf"]
-    for fb in fallbacks:
-        if fb != SETTINGS.llm_provider and _PROVIDERS[fb]:
-            logger.info("Primary provider failed, trying fallback: %s", fb)
-            result = _PROVIDERS[fb].generate_json(prompt)
-            if result is not None:
-                return result
-                
+    for fallback in ("gemini", "hf"):
+        if fallback == SETTINGS.llm_provider:
+            continue
+        result = _PROVIDERS[fallback].generate_json(prompt)
+        if result is not None:
+            return result
     return None
 
 
-# --- Answer Generation Logic ---
+def generate_text_from_any(prompt: str) -> str | None:
+    provider = get_provider()
+    result = provider.generate(prompt)
+    if result:
+        return result
+    for fallback in ("gemini", "hf"):
+        if fallback == SETTINGS.llm_provider:
+            continue
+        result = _PROVIDERS[fallback].generate(prompt)
+        if result:
+            return result
+    return None
 
-def _fallback_response(query: str, chunks: list[dict[str, Any]], confidence: float) -> dict[str, Any]:
+
+def _fallback_response(query: str, chunks: list[dict[str, Any]], reason: str, service_error: bool = False) -> dict[str, Any]:
     return {
-        "your_right": "I could not find a strong enough legal match in the grounded corpus to answer confidently.",
-        "what_law_says": "This case needs human review. Please contact your nearest District Legal Services Authority or the NALSA helpline for guided assistance.",
-        "what_this_means": "The system is not making a legal claim here because the retrieved evidence is too weak.",
+        "your_right": "I could not find sufficient authoritative legal evidence to answer this confidently."
+        if not service_error
+        else "The legal answer service is currently unavailable.",
+        "what_law_says": reason,
+        "what_this_means": "The system is not making a legal claim because evidence or inference is insufficient.",
         "what_you_can_do": [
-            "Visit or call your local District Legal Services Authority.",
-            "Keep any letters, payslips, notices, or messages that support your case.",
-            "If this is urgent, ask a lawyer or legal aid clinic to review the facts directly.",
+            "Contact your nearest District Legal Services Authority or NALSA helpline.",
+            "Keep documents such as payslips, notices, or receipts.",
+            "Ask a qualified lawyer or legal-aid clinic to review the facts.",
         ],
-        "source": {"act": "NALSA / DLSA routing", "section": "Legal aid support"},
-        "confidence": float(confidence),
+        "source": None,
+        "citations": citations_from_chunks(chunks),
         "fallback_used": True,
+        "service_error": service_error,
         "query": query,
         "next_action": "legal_aid_or_more_information",
-    }
-
-
-def _synthesize_from_chunks(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
-    top = chunks[0]
-    act = top.get("act", "Unknown act")
-    section = top.get("section", "Unknown section")
-    simplified = top.get("simplified_text") or top.get("original_text") or ""
-    return {
-        "your_right": f"The strongest grounded match points to {act}, {section}.",
-        "what_law_says": simplified or "The retrieved chunk describes the relevant legal rule.",
-        "what_this_means": "Based on the retrieved material, the issue appears to fall under the cited provision.",
-        "what_you_can_do": [
-            "Review the cited source in full before taking action.",
-            "Keep supporting documents ready in case you need legal aid or a claim filing.",
-        ],
-        "source": {"act": act, "section": section},
-        "confidence": float(top.get("confidence", 0.0)),
-        "fallback_used": False,
-        "query": query,
-        "next_action": "review_cited_source",
+        "disclaimer": "This is legal awareness information, not legal advice.",
     }
 
 
@@ -237,35 +275,62 @@ def _build_context(chunks: list[dict[str, Any]]) -> str:
     lines = []
     for idx, chunk in enumerate(chunks[:5], start=1):
         lines.append(
-            f"{idx}. Act: {chunk.get('act', '')}\nSection: {chunk.get('section', '')}\nTopic: {chunk.get('topic', '')}\nText: {chunk.get('simplified_text') or chunk.get('original_text') or ''}"
+            "\n".join(
+                [
+                    f"{idx}. document_name: {chunk.get('document_name', '')}",
+                    f"act/source: {chunk.get('act') or chunk.get('source', '')}",
+                    f"section: {chunk.get('section', '')}",
+                    f"page: {chunk.get('page', '')}",
+                    f"source_url: {chunk.get('source_url', '')}",
+                    f"text: {chunk.get('original_text') or chunk.get('simplified_text') or ''}",
+                ]
+            )
         )
     return "\n\n".join(lines)
 
 
-def _provider_generate(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
-    prompt = (
-        "You are Nyaya Setu, an Indian legal-awareness assistant. Use only the supplied chunks. "
-        "Do not invent law. Cite one act and section from the evidence. Return JSON only with keys: "
-        "your_right, what_law_says, what_this_means, what_you_can_do, source, confidence, fallback_used.\n\n"
-        f"Question:\n{query}\n\nGrounded chunks:\n{_build_context(chunks)}"
-    )
-    return generate_json_from_any(prompt)
-
-
-def generate_answer(query: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
+def generate_answer(
+    query: str,
+    chunks: list[dict[str, Any]],
+    history: list[dict[str, Any]] | None = None,
+    extracted_document: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not chunks:
-        return _fallback_response(query, chunks, 0.0)
-    top_confidence = float(chunks[0].get("confidence", 0.0))
-    if top_confidence < SETTINGS.confidence_threshold:
-        return _fallback_response(query, chunks, top_confidence)
-    provider_answer = _provider_generate(query, chunks)
-    if provider_answer:
-        provider_answer.setdefault("confidence", top_confidence)
-        provider_answer.setdefault("fallback_used", False)
-        source = provider_answer.get("source")
-        if isinstance(source, list):
-            provider_answer["source"] = source[0] if source else {}
-        provider_answer.setdefault("source", {"act": chunks[0].get("act", "Unknown act"), "section": chunks[0].get("section", "")})
-        provider_answer.setdefault("query", query)
-        return provider_answer
-    return _synthesize_from_chunks(query, chunks)
+        return _fallback_response(query, chunks, "No official knowledge-base chunks were retrieved.")
+
+    history_text = ""
+    if history:
+        recent = history[-6:]
+        history_text = "\n".join(f"{item.get('role')}: {item.get('content')}" for item in recent)
+
+    extracted = ""
+    if extracted_document:
+        extracted = json.dumps(extracted_document.get("extracted_fields") or {}, ensure_ascii=False)
+
+    prompt = (
+        "You are Nyaya Setu, an Indian legal-awareness assistant. Use only the supplied official chunks. "
+        "Do not invent law, sections, cases, or URLs. If a fact is not in the chunks, say so. "
+        "Clearly separate: (1) facts from a user document if provided, (2) official knowledge-base text, "
+        "(3) your interpretation. Return JSON with keys: your_right, what_law_says, what_this_means, "
+        "what_you_can_do (array), interpretation, next_action. Do not include a numeric confidence score.\n\n"
+        f"Conversation:\n{history_text}\n\nQuestion:\n{query}\n\n"
+        f"User document extraction (not law):\n{extracted}\n\nOfficial chunks:\n{_build_context(chunks)}"
+    )
+    provider_answer = generate_json_from_any(prompt)
+    if not provider_answer:
+        return _fallback_response(
+            query,
+            chunks,
+            "Qwen inference is unavailable. No grounded legal answer was generated.",
+            service_error=True,
+        )
+
+    citations = citations_from_chunks(chunks)
+    provider_answer["citations"] = citations
+    provider_answer["source"] = citations[0] if citations else None
+    provider_answer["fallback_used"] = False
+    provider_answer["service_error"] = False
+    provider_answer["query"] = query
+    provider_answer["disclaimer"] = "This is legal awareness information, not legally verified advice."
+    provider_answer.pop("confidence", None)
+    return provider_answer

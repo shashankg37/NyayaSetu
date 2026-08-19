@@ -32,10 +32,12 @@ def rrf_merge(
             if not cid:
                 continue
             if cid not in chunks:
-                chunks[cid] = chunk
-            if cid not in scores:
-                scores[cid] = 0.0
-            scores[cid] += 1.0 / (k + rank)
+                chunks[cid] = dict(chunk)
+                chunks[cid]["retrieval_sources"] = []
+            source = chunk.get("retrieval_source")
+            if source and source not in chunks[cid]["retrieval_sources"]:
+                chunks[cid]["retrieval_sources"].append(source)
+            scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + rank)
 
     _add_ranks(results_a)
     _add_ranks(results_b)

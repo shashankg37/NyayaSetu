@@ -1,4 +1,4 @@
-"""Language detection, intent classification, and text utilities for NyayaSetu."""
+"""Language detection, intent classification, and slot utilities."""
 from __future__ import annotations
 
 import logging
@@ -12,93 +12,141 @@ logger = logging.getLogger(__name__)
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9]+", re.UNICODE)
 
+INTENT_LABELS = {
+    "legal_guidance",
+    "legal_research",
+    "document_understanding",
+    "drafting",
+    "lawyer_matching",
+    "legal_awareness",
+    "unsupported",
+    "emergency",
+}
+
+DRAFT_TYPES = {
+    "rti": ("rti", "right to information"),
+    "wage_complaint": ("wage complaint", "salary complaint", "unpaid wages"),
+    "consumer_complaint": ("consumer complaint", "consumer forum", "defective"),
+    "government_grievance": ("grievance", "cpgrams", "pg portal"),
+    "legal_notice": ("legal notice", "send a notice"),
+}
+
+REQUIRED_FIELDS = {
+    "rti": ["applicant_name", "address", "public_authority", "information_sought"],
+    "wage_complaint": ["worker_name", "employer_name", "period_unpaid", "amount", "work_place"],
+    "consumer_complaint": ["complainant_name", "opposite_party", "goods_or_service", "grievance", "relief_sought"],
+    "government_grievance": ["applicant_name", "department", "grievance", "location"],
+    "legal_notice": ["sender_name", "recipient_name", "facts", "demand"],
+}
+
 
 def normalize_text(text: str) -> str:
-    """Normalize text by stripping and reducing whitespace."""
-    return " ".join(text.strip().split())
+    return " ".join((text or "").strip().split())
 
 
 def tokenize(text: str) -> list[str]:
-    """Tokenize text into alphanumeric lowercase words."""
-    return [token.lower() for token in TOKEN_RE.findall(text)]
+    return [token.lower() for token in TOKEN_RE.findall(text or "")]
 
 
 @lru_cache(maxsize=1)
 def _load_fasttext_model():
-    """Load the FastText language ID model."""
-    import fasttext  # type: ignore
-
     try:
-        model = fasttext.load_model(str(SETTINGS.fasttext_langid_model))
-        logger.info("Loaded FastText model from %s", SETTINGS.fasttext_langid_model)
-        return model
-    except Exception as e:
-        logger.warning("Failed to load FastText model: %s", e)
+        import fasttext  # type: ignore
+    except Exception as exc:
+        logger.warning("fasttext is unavailable: %s", exc)
         return None
+    for path in SETTINGS.fasttext_model_paths():
+        if not path.exists():
+            continue
+        try:
+            model = fasttext.load_model(str(path))
+            logger.info("Loaded FastText model from %s", path)
+            return model
+        except Exception as exc:
+            logger.warning("Failed to load FastText model %s: %s", path, exc)
+    return None
 
 
 def detect_language(text: str) -> str:
-    """Detect the language code of the given text (e.g., 'en', 'hi', 'ta').
-
-    Falls back to 'en' if detection fails or model is unavailable.
-    """
     if not text or not text.strip():
         return "en"
-
     model = _load_fasttext_model()
     if not model:
         return "en"
-
     try:
-        # FastText expects single line text
-        clean_text = text.replace("\n", " ").strip()
-        predictions = model.predict(clean_text, k=1)
+        predictions = model.predict(text.replace("\n", " ").strip(), k=1)
         label = predictions[0][0]
-        # Label format is '__label__en'
-        lang_code = label.replace("__label__", "")
-        return lang_code
-    except Exception as e:
-        logger.warning("Language detection failed: %s", e)
+        return str(label).replace("__label__", "")
+    except Exception as exc:
+        logger.warning("Language detection failed: %s", exc)
         return "en"
 
 
-def classify_intent(text: str) -> str:
-    """Classify the user's intent from text."""
+def detect_draft_type(text: str) -> str | None:
     lowered = text.lower()
-    draft_markers = {
-        "draft", "notice", "petition", "complaint", 
-        "application", "reply", "legal notice", "agreement", "affidavit",
-    }
-    procedure_markers = {"how to", "procedure", "file", "appeal", "step", "process", "where to"}
-    
-    if any(marker in lowered for marker in draft_markers):
-        return "document_draft_request"
-    if any(marker in lowered for marker in procedure_markers):
-        return "procedure_query"
-        
-    tokens = set(tokenize(text))
-    if {"notice", "draft", "format"} & tokens:
-        return "document_draft_request"
-    if {"how", "where", "when", "process", "steps"} & tokens:
-        return "procedure_query"
-        
-    return "rights_query"
+    for doc_type, markers in DRAFT_TYPES.items():
+        if any(marker in lowered for marker in markers):
+            return doc_type
+    return None
+
+
+def classify_intent(text: str) -> str:
+    lowered = text.lower()
+    if any(marker in lowered for marker in ("kill myself", "suicide", "bomb", "terror", "shoot")):
+        return "emergency"
+    if any(marker in lowered for marker in ("find a lawyer", "need a lawyer", "legal aid lawyer", "advocate near")):
+        return "lawyer_matching"
+    if detect_draft_type(lowered):
+        return "drafting"
+    if any(marker in lowered for marker in ("research", "which section", "compare", "provision", "what does the act")):
+        return "legal_research"
+    if any(marker in lowered for marker in ("this document", "uploaded", "notice i received", "scan")):
+        return "document_understanding"
+    if any(marker in lowered for marker in ("how to", "procedure", "file", "steps", "where do i")):
+        return "legal_guidance"
+    if any(marker in lowered for marker in ("what are my rights", "is it legal", "can my employer", "landlord")):
+        return "legal_awareness"
+    if any(marker in lowered for marker in ("hack", "fake aadhaar", "evade tax fraudulently")):
+        return "unsupported"
+    return "legal_guidance"
+
+
+def infer_legal_domain(text: str) -> str:
+    lowered = text.lower()
+    mapping = [
+        ("labour", ("employer", "wage", "salary", "worker", "labour", "labor")),
+        ("consumer", ("consumer", "refund", "defective", "product")),
+        ("property", ("landlord", "tenant", "deposit", "rent", "evict")),
+        ("women_and_children", ("domestic violence", "dowry", "child")),
+        ("disability", ("disability", "pwd", "accessibility")),
+        ("senior_citizens", ("senior citizen", "elderly", "parent maintenance")),
+        ("government_services", ("rti", "ration", "pension", "aadhaar", "grievance")),
+        ("criminal", ("fir", "police", "theft", "assault", "bail")),
+        ("legal_aid", ("legal aid", "nalsa", "dlsa")),
+    ]
+    for domain, markers in mapping:
+        if any(marker in lowered for marker in markers):
+            return domain
+    return "unknown"
 
 
 def missing_fields(doc_type: str, known_fields: dict[str, Any]) -> list[str]:
-    """Return a list of missing fields required to draft doc_type."""
-    doc_type = doc_type.lower()
-    required: list[str] = []
-    if "notice" in doc_type:
-        required = ["sender_name", "recipient_name", "date_of_incident", "demand"]
-    elif "complaint" in doc_type or "fir" in doc_type:
-        required = ["complainant_name", "accused_name", "incident_details", "date_of_incident", "police_station"]
-    elif "petition" in doc_type:
-        required = ["petitioner_name", "respondent_name", "court_name", "grounds"]
-    elif "agreement" in doc_type or "contract" in doc_type:
-        required = ["party_one", "party_two", "terms", "date_of_execution"]
-    else:
-        required = ["party_name", "details"]
+    required = REQUIRED_FIELDS.get(doc_type.lower(), ["party_name", "details"])
+    return [field for field in required if not str(known_fields.get(field) or "").strip()]
 
-    missing = [field for field in required if not known_fields.get(field)]
-    return missing
+
+def followup_slots(domain: str, intent: str, collected: dict[str, Any]) -> list[str]:
+    slots: list[str] = []
+    if domain == "labour" and not collected.get("employment_type"):
+        slots.append("employment_type")
+    if domain == "property" and not collected.get("state"):
+        slots.append("state")
+    if intent == "drafting":
+        return slots
+    return slots
+
+
+SLOT_QUESTIONS = {
+    "employment_type": "Are you a permanent employee or a daily-wage worker?",
+    "state": "What state are you in?",
+}

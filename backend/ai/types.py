@@ -21,12 +21,17 @@ class PipelineState(TypedDict, total=False):
     current_issue: str
     collected_information: dict[str, Any]
     missing_information: list[str]
+    pending_slot: str
     uploaded_document: dict[str, Any]
     chunks: list[dict[str, Any]]
     retrieved_chunks: list[dict[str, Any]]
     reranked_chunks: list[dict[str, Any]]
     confidence_score: float
+    evidence_status: str
+    evidence_decision: str
+    evidence_sufficient: bool
     safety_status: str
     next_action: str
     answer: dict[str, Any]
     document: dict[str, Any]
+    db_session: Any

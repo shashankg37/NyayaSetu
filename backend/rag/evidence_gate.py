@@ -1,80 +1,110 @@
-"""Evidence gate to evaluate retrieval quality and safety.
-
-Acts as a safeguard against hallucination.
-"""
+"""Evidence gate to evaluate retrieval quality before generation."""
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from backend.config import SETTINGS
 
 logger = logging.getLogger(__name__)
 
+AUTHORITY_MARKERS = (
+    "india code",
+    "egazette",
+    "gazette",
+    "nalsa",
+    "slsa",
+    "dlsa",
+    "ministry of law",
+    "government of india",
+    "act",
+    "rules",
+    "regulation",
+    "official",
+)
+
 
 @dataclass
 class EvidenceDecision:
-    """Decision output from the evidence gate."""
     sufficient: bool
     confidence: float
     explanation: str
+    authority_hits: int = 0
+    agreement_hits: int = 0
+    coverage: float = 0.0
+    signals: dict[str, Any] = field(default_factory=dict)
+
+
+def _is_authoritative(chunk: dict[str, Any]) -> bool:
+    haystack = " ".join(
+        str(chunk.get(key) or "")
+        for key in ("source", "source_url", "document_name", "act", "section")
+    ).lower()
+    return any(marker in haystack for marker in AUTHORITY_MARKERS)
 
 
 def evaluate_evidence(query: str, results: list[dict[str, Any]]) -> EvidenceDecision:
-    """Evaluate if retrieved chunks are sufficient to answer the query.
-
-    Checks:
-    1. Are there any results?
-    2. Is the top CrossEncoder score above the minimum threshold?
-    3. Is there sufficient overall coverage?
-
-    Args:
-        query: Original user query.
-        results: Retrieved chunks (must have 'confidence' score from CrossEncoder).
-
-    Returns:
-        EvidenceDecision object.
-    """
+    """Evaluate whether retrieved chunks are sufficient to answer the query."""
+    del query
     if not results:
         return EvidenceDecision(
             sufficient=False,
             confidence=0.0,
-            explanation="No legal evidence found.",
+            explanation="No legal evidence found in the official knowledge base.",
         )
 
-    # Evaluate top score
-    top_score = results[0].get("confidence", 0.0)
-    threshold = SETTINGS.confidence_threshold
+    top_score = float(results[0].get("confidence") or results[0].get("fusion_score") or 0.0)
+    threshold = float(SETTINGS.confidence_threshold)
+    authority_hits = sum(1 for item in results if _is_authoritative(item))
+    agreement_hits = sum(
+        1
+        for item in results
+        if "qdrant" in str(item.get("retrieval_sources", item.get("retrieval_source", "")))
+        and "bm25" in str(item.get("retrieval_sources", item.get("retrieval_source", "")))
+    )
+    if agreement_hits == 0:
+        agreement_hits = sum(1 for item in results if item.get("fusion_score") and item.get("retrieval_source") != "qdrant")
+        sources = [str(item.get("retrieval_source", "")) for item in results]
+        if "qdrant" in sources and "bm25" in sources:
+            agreement_hits = max(agreement_hits, 1)
 
-    if top_score < threshold:
-        logger.warning(
-            "Evidence rejected: Top score %.2f < threshold %.2f",
-            top_score,
-            threshold,
-        )
+    coverage = min(1.0, (sum(float(item.get("confidence") or 0.0) for item in results) / max(len(results), 1)))
+    min_chunks = int(SETTINGS.evidence_min_chunks)
+    min_authority = int(SETTINGS.evidence_min_authority)
+    min_agreement = int(SETTINGS.evidence_min_agreement)
+    min_coverage = float(SETTINGS.evidence_coverage_min)
+
+    sufficient = (
+        len(results) >= min_chunks
+        and top_score >= threshold
+        and authority_hits >= min_authority
+        and (agreement_hits >= min_agreement or top_score >= max(threshold, 0.7))
+        and coverage >= min_coverage
+    )
+    explanation = (
+        f"chunks={len(results)}; cross_encoder={top_score:.3f}; "
+        f"authority={authority_hits}; agreement={agreement_hits}; coverage={coverage:.3f}"
+    )
+    if not sufficient:
+        logger.warning("Evidence rejected: %s", explanation)
         return EvidenceDecision(
             sufficient=False,
             confidence=top_score,
-            explanation=f"Confidence too low ({top_score:.2f}).",
+            explanation=f"Insufficient authoritative evidence ({explanation}).",
+            authority_hits=authority_hits,
+            agreement_hits=agreement_hits,
+            coverage=coverage,
+            signals={"threshold": threshold},
         )
-
-    # Evaluate domain consensus (if multiple chunks agree on legal_domain)
-    domains = [r.get("legal_domain", "general") for r in results[:3]]
-    consensus_domain = max(set(domains), key=domains.count)
-
-    # Count NALSA/authoritative sources
-    auth_sources = sum(1 for r in results if "nalsa" in str(r.get("source", "")).lower())
-
-    explanation = (
-        f"Strong evidence found (score {top_score:.2f}). "
-        f"Domain consensus: {consensus_domain}. "
-        f"Authoritative chunks: {auth_sources}."
-    )
 
     logger.info("Evidence accepted: %s", explanation)
     return EvidenceDecision(
         sufficient=True,
         confidence=top_score,
         explanation=explanation,
+        authority_hits=authority_hits,
+        agreement_hits=agreement_hits,
+        coverage=coverage,
+        signals={"threshold": threshold},
     )

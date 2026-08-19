@@ -75,6 +75,7 @@ def search_qdrant(
         return [
             {
                 "score": float(res.score),
+                "retrieval_source": "qdrant",
                 **res.payload,
             }
             for res in results

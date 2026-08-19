@@ -6,11 +6,11 @@ Nyaya Setu is a FastAPI and LangGraph backend for a multilingual legal-awareness
 
 The active application lives in `backend/`. It keeps one deployable backend process with these pieces:
 
-- FastAPI routers in `backend/app/api/v1`
+- FastAPI routers in `backend/api`
 - SQLAlchemy models for structured PostgreSQL data
-- LangGraph flow in `backend/app/ai/graph.py`
-- Hybrid legal retrieval in `backend/app/ai/ai_stubs/retrieval.py`
-- Provider-configurable answer generation in `backend/app/ai/llm.py`
+- LangGraph flow in `backend/ai/graph.py`
+- Hybrid legal retrieval in `backend/rag/retrieval.py`
+- Provider-configurable answer generation in `backend/ai/llm.py`
 - Manual knowledge ingestion in `backend/scripts/ingest.py`
 
 The MVP knowledge base is limited to official legal-awareness material and primary official legal sources such as India Code, Acts, Rules, Regulations, e-Gazette, NALSA, and SLSA material.
@@ -32,7 +32,7 @@ The MVP knowledge base is limited to official legal-awareness material and prima
 cd backend
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload
+uvicorn backend.main:app --reload
 ```
 
 API docs are available at `http://localhost:8000/docs`.

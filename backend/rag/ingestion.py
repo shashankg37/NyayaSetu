@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 import json
+import logging
+import math
+import re
+import uuid
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -161,7 +166,6 @@ def load_directory(directory: Path) -> list[RawDocument]:
             documents.append(doc)
     return documents
 """Text cleaning utilities for legal documents."""
-from __future__ import annotations
 
 import re
 
@@ -233,7 +237,6 @@ def clean_pages(pages: list[str]) -> list[str]:
 Preserves document structure: section/subsection boundaries, numbered clauses,
 and paragraph context. Each chunk has a stable chunk_id and full provenance.
 """
-from __future__ import annotations
 
 import hashlib
 import re
@@ -463,260 +466,222 @@ Uses pretrained InLegalBERT (law-ai/InLegalBERT) as a feature extractor
 with cosine similarity against label descriptions for zero-shot-style
 classification. NO fine-tuning is performed.
 """
-from __future__ import annotations
 
 import logging
+import torch
+import torch.nn.functional as F
 from functools import lru_cache
 from typing import Any
+from transformers import AutoTokenizer, AutoModel
 
 logger = logging.getLogger(__name__)
 
-# Candidate labels for each classification axis
+# Strict taxonomy as requested
 LEGAL_DOMAINS = [
     "labour",
     "consumer",
-    "family",
-    "housing",
-    "criminal",
+    "women_and_children",
+    "disability",
+    "senior_citizens",
     "property",
-    "constitutional",
-    "administrative",
-    "environmental",
-    "corporate",
-    "taxation",
+    "criminal",
+    "civil",
+    "government_services",
     "legal_aid",
-    "general",
+    "general_rights",
 ]
 
-TOPICS = [
-    "wages",
-    "employment",
-    "termination",
-    "workplace_safety",
-    "rent",
-    "eviction",
-    "tenancy",
-    "marriage",
-    "divorce",
-    "child_custody",
-    "maintenance",
-    "domestic_violence",
-    "consumer_complaint",
-    "product_defect",
-    "refund",
-    "service_deficiency",
-    "property_dispute",
-    "land_acquisition",
-    "legal_aid",
-    "free_legal_services",
-    "rti",
-    "government_grievance",
-    "pension",
-    "insurance",
-    "education",
-    "healthcare",
-    "general",
-]
+# Descriptive phrases used to form prototype embeddings
+DOMAIN_DESCRIPTIONS = {
+    "labour": "Employment, wages, workplace disputes, employer, worker, labour rights, unions.",
+    "consumer": "Consumer complaints, defective products, refund, deficiency in service, buyer, seller.",
+    "women_and_children": "Women's rights, domestic violence, child custody, maintenance, juvenile justice.",
+    "disability": "Rights of persons with disabilities, accessibility, discrimination against disabled.",
+    "senior_citizens": "Senior citizens, elderly care, maintenance of parents.",
+    "property": "Property disputes, land acquisition, real estate, inheritance, tenancy, eviction.",
+    "criminal": "Criminal offenses, FIR, bail, police, arrest, theft, fraud, violence.",
+    "civil": "Civil disputes, contracts, injunctions, general civil matters.",
+    "government_services": "RTI, government schemes, pensions, public grievances, welfare.",
+    "legal_aid": "Free legal aid, NALSA, DLSA, lok adalat, legal representation.",
+    "general_rights": "Fundamental rights, constitutional issues, general human rights.",
+}
 
-BENEFICIARIES = [
-    "worker",
-    "daily_wage_worker",
-    "employee",
-    "tenant",
-    "consumer",
-    "woman",
-    "child",
-    "senior_citizen",
-    "person_with_disability",
-    "sc_st",
-    "victim",
-    "citizen",
-    "litigant",
-    "entrepreneur",
-    "farmer",
-]
+# The model path
+MODEL_NAME = "law-ai/InLegalBERT"
 
+TOPIC_BY_DOMAIN = {
+    "labour": "wages_and_employment",
+    "consumer": "consumer_protection",
+    "women_and_children": "protection_and_maintenance",
+    "disability": "accessibility_and_non_discrimination",
+    "senior_citizens": "maintenance_and_welfare",
+    "property": "tenancy_and_property",
+    "criminal": "offences_and_procedure",
+    "civil": "civil_procedure",
+    "government_services": "public_services_and_rti",
+    "legal_aid": "legal_services",
+    "general_rights": "fundamental_rights",
+}
+
+BENEFICIARY_BY_DOMAIN = {
+    "labour": "worker",
+    "consumer": "consumer",
+    "women_and_children": "woman_or_child",
+    "disability": "person_with_disability",
+    "senior_citizens": "senior_citizen",
+    "property": "property_holder_or_tenant",
+    "criminal": "accused_or_victim",
+    "civil": "party_to_dispute",
+    "government_services": "citizen",
+    "legal_aid": "legal_aid_seeker",
+    "general_rights": "citizen",
+}
+
+
+def _topic_and_beneficiary(domain: str, text: str) -> tuple[str, str]:
+    lowered = (text or "").lower()
+    topic = TOPIC_BY_DOMAIN.get(domain, "unknown")
+    beneficiary = BENEFICIARY_BY_DOMAIN.get(domain, "unknown")
+    if "daily wage" in lowered or "daily-wage" in lowered:
+        beneficiary = "daily_wage_worker"
+        topic = "wages_and_employment"
+    if "tenant" in lowered or "landlord" in lowered or "deposit" in lowered:
+        topic = "tenancy_and_deposit"
+        beneficiary = "tenant"
+    if "rti" in lowered:
+        topic = "right_to_information"
+        beneficiary = "citizen"
+    return topic, beneficiary
 
 @lru_cache(maxsize=1)
-def _load_classifier():
-    """Load a zero-shot classification pipeline.
-
-    Tries InLegalBERT embeddings + cosine similarity approach first.
-    Falls back to a cross-encoder NLI model if available.
-    Falls back to keyword heuristics if no model loads.
-    """
-    try:
-        from transformers import pipeline  # type: ignore
-
-        # Use a multilingual NLI model for zero-shot classification
-        # InLegalBERT is BERT-base without NLI head, so we use a dedicated
-        # zero-shot model and rely on InLegalBERT embeddings for enrichment
-        clf = pipeline(
-            "zero-shot-classification",
-            model="facebook/bart-large-mnli",
-            device=-1,  # CPU
-        )
-        logger.info("Loaded zero-shot classifier: facebook/bart-large-mnli")
-        return clf
-    except Exception as e:
-        logger.warning("Could not load transformer classifier: %s", e)
-        return None
-
+def _get_device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @lru_cache(maxsize=1)
-def _load_inlegalbert_embedder():
-    """Load InLegalBERT for domain-specific embedding enrichment."""
+def _load_inlegalbert():
+    """Load the tokenizer and model for InLegalBERT."""
     try:
-        from sentence_transformers import SentenceTransformer  # type: ignore
-
-        model = SentenceTransformer("law-ai/InLegalBERT")
-        logger.info("Loaded InLegalBERT for classification enrichment")
-        return model
+        device = _get_device()
+        logger.info(f"Loading InLegalBERT on {device}...")
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        model = AutoModel.from_pretrained(MODEL_NAME).to(device)
+        model.eval()
+        return tokenizer, model
     except Exception as e:
-        logger.warning("Could not load InLegalBERT: %s", e)
-        return None
+        logger.error("Failed to load InLegalBERT: %s", e)
+        return None, None
 
+def _mean_pooling(model_output, attention_mask):
+    """Mean Pooling - Take attention mask into account for correct averaging."""
+    token_embeddings = model_output[0] # First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
-def _keyword_classify_domain(text: str) -> str:
-    """Fallback keyword-based domain classification."""
-    lower = text.lower()
-    domain_markers = {
-        "labour": ["wage", "salary", "employ", "labour", "worker", "workman", "industrial", "factory", "minimum wage"],
-        "consumer": ["consumer", "purchase", "refund", "product", "service", "defect", "seller", "buyer"],
-        "housing": ["tenant", "landlord", "rent", "evict", "lease", "premises", "accommodation"],
-        "family": ["family", "marriage", "divorce", "child", "maintenance", "custody", "dowry", "domestic violence"],
-        "criminal": ["criminal", "offense", "fir", "bail", "arrest", "theft", "fraud"],
-        "property": ["property", "land", "succession", "inheritance", "transfer", "mutation"],
-        "constitutional": ["fundamental right", "constitution", "article", "writ", "petition"],
-        "legal_aid": ["legal aid", "nalsa", "legal services", "free legal", "lok adalat"],
-    }
-    for domain, markers in domain_markers.items():
-        if any(marker in lower for marker in markers):
-            return domain
-    return "general"
-
-
-def _keyword_classify_topic(text: str) -> str:
-    """Fallback keyword-based topic classification."""
-    lower = text.lower()
-    topic_markers = {
-        "wages": ["wage", "salary", "pay", "remuneration", "compensation"],
-        "termination": ["terminat", "dismiss", "retrench", "layoff"],
-        "eviction": ["evict", "vacate", "possession"],
-        "rent": ["rent", "lease", "tenancy"],
-        "maintenance": ["maintenance", "alimony"],
-        "consumer_complaint": ["consumer complaint", "consumer forum"],
-        "legal_aid": ["legal aid", "free legal", "nalsa"],
-        "rti": ["right to information", "rti"],
-    }
-    for topic, markers in topic_markers.items():
-        if any(marker in lower for marker in markers):
-            return topic
-    return "general"
-
-
-def _keyword_classify_beneficiary(text: str) -> str:
-    """Fallback keyword-based beneficiary classification."""
-    lower = text.lower()
-    beneficiary_markers = {
-        "worker": ["worker", "workman", "labourer"],
-        "daily_wage_worker": ["daily wage", "casual", "contract worker"],
-        "employee": ["employee", "staff"],
-        "tenant": ["tenant", "occupant", "lessee"],
-        "consumer": ["consumer", "buyer", "purchaser"],
-        "woman": ["woman", "wife", "mother", "female"],
-        "child": ["child", "minor", "juvenile"],
-        "senior_citizen": ["senior citizen", "elderly", "old age"],
-    }
-    for beneficiary, markers in beneficiary_markers.items():
-        if any(marker in lower for marker in markers):
-            return beneficiary
-    return "citizen"
-
+@lru_cache(maxsize=1)
+def _get_domain_prototypes() -> dict[str, torch.Tensor]:
+    """Precompute normalized embeddings for the legal domains."""
+    tokenizer, model = _load_inlegalbert()
+    if not model or not tokenizer:
+        return {}
+    
+    device = _get_device()
+    prototypes = {}
+    
+    with torch.no_grad():
+        for domain, desc in DOMAIN_DESCRIPTIONS.items():
+            encoded_input = tokenizer(desc, padding=True, truncation=True, return_tensors='pt').to(device)
+            model_output = model(**encoded_input)
+            embedding = _mean_pooling(model_output, encoded_input['attention_mask'])
+            normalized_emb = F.normalize(embedding, p=2, dim=1)
+            prototypes[domain] = normalized_emb.cpu()
+            
+    return prototypes
 
 def classify_text(text: str) -> dict[str, Any]:
-    """Classify a piece of legal text.
-
-    Returns a dict with:
-        legal_domain: str
-        topic: str
-        beneficiary: str
-        domain_confidence: float
-        topic_confidence: float
-        beneficiary_confidence: float
-    """
-    if not text or not text.strip():
-        return {
-            "legal_domain": "general",
-            "topic": "general",
-            "beneficiary": "citizen",
-            "domain_confidence": 0.0,
-            "topic_confidence": 0.0,
-            "beneficiary_confidence": 0.0,
-        }
-
-    clf = _load_classifier()
-    if clf is None:
-        # Pure keyword fallback
-        return {
-            "legal_domain": _keyword_classify_domain(text),
-            "topic": _keyword_classify_topic(text),
-            "beneficiary": _keyword_classify_beneficiary(text),
-            "domain_confidence": 0.5,
-            "topic_confidence": 0.5,
-            "beneficiary_confidence": 0.5,
-        }
-
-    # Truncate text for the classifier (BART has 1024 token limit)
-    truncated = text[:1500]
-
-    try:
-        domain_result = clf(truncated, LEGAL_DOMAINS, multi_label=False)
-        domain = domain_result["labels"][0]
-        domain_conf = float(domain_result["scores"][0])
-    except Exception:
-        domain = _keyword_classify_domain(text)
-        domain_conf = 0.5
-
-    try:
-        topic_result = clf(truncated, TOPICS[:15], multi_label=False)  # Limit candidates
-        topic = topic_result["labels"][0]
-        topic_conf = float(topic_result["scores"][0])
-    except Exception:
-        topic = _keyword_classify_topic(text)
-        topic_conf = 0.5
-
-    try:
-        beneficiary_result = clf(truncated, BENEFICIARIES, multi_label=False)
-        beneficiary = beneficiary_result["labels"][0]
-        beneficiary_conf = float(beneficiary_result["scores"][0])
-    except Exception:
-        beneficiary = _keyword_classify_beneficiary(text)
-        beneficiary_conf = 0.5
-
-    return {
-        "legal_domain": domain,
-        "topic": topic,
-        "beneficiary": beneficiary,
-        "domain_confidence": domain_conf,
-        "topic_confidence": topic_conf,
-        "beneficiary_confidence": beneficiary_conf,
-    }
-
+    """Single-text classification fallback/wrapper."""
+    results = classify_batch([text])
+    return results[0]
 
 def classify_batch(texts: list[str]) -> list[dict[str, Any]]:
-    """Classify multiple texts. Processes sequentially to avoid OOM."""
-    return [classify_text(text) for text in texts]
+    """Classify multiple texts using batching for performance."""
+    results = []
+    default_result = {
+        "legal_domain": "unknown",
+        "topic": "unknown",
+        "beneficiary": "unknown",
+        "domain_confidence": 0.0,
+        "topic_confidence": 0.0,
+        "beneficiary_confidence": 0.0,
+    }
+    
+    if not texts:
+        return results
+        
+    tokenizer, model = _load_inlegalbert()
+    if not model or not tokenizer:
+        logger.warning("InLegalBERT not loaded, falling back to 'unknown'.")
+        return [default_result.copy() for _ in texts]
+        
+    prototypes = _get_domain_prototypes()
+    if not prototypes:
+        return [default_result.copy() for _ in texts]
+        
+    # Stack prototypes into a single tensor [num_domains, hidden_size]
+    domain_names = list(prototypes.keys())
+    proto_tensor = torch.cat([prototypes[d] for d in domain_names], dim=0)
+    
+    device = _get_device()
+    batch_size = 8
+    
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i : i + batch_size]
+        # Truncate text to max 512 tokens
+        encoded_input = tokenizer(
+            batch_texts, 
+            padding=True, 
+            truncation=True, 
+            max_length=512, 
+            return_tensors='pt'
+        ).to(device)
+        
+        with torch.no_grad():
+            model_output = model(**encoded_input)
+            batch_embeddings = _mean_pooling(model_output, encoded_input['attention_mask'])
+            batch_normalized = F.normalize(batch_embeddings, p=2, dim=1).cpu()
+            
+            # Compute cosine similarity: [batch_size, hidden_size] @ [hidden_size, num_domains] -> [batch_size, num_domains]
+            similarities = torch.matmul(batch_normalized, proto_tensor.T)
+            
+            # Get max similarity
+            max_scores, max_idxs = torch.max(similarities, dim=1)
+            
+            for text, score, idx in zip(batch_texts, max_scores, max_idxs):
+                score_val = score.item()
+                domain = domain_names[idx.item()]
+                topic, beneficiary = _topic_and_beneficiary(domain, text)
+                if score_val < 0.2:
+                    domain = "unknown"
+                    topic = "unknown"
+                    beneficiary = "unknown"
+                results.append({
+                    "legal_domain": domain,
+                    "topic": topic,
+                    "beneficiary": beneficiary,
+                    "domain_confidence": score_val,
+                    "topic_confidence": score_val if domain != "unknown" else 0.0,
+                    "beneficiary_confidence": score_val if domain != "unknown" else 0.0,
+                })
+                
+    return results
 """Metadata enrichment for legal chunks.
 
 Combines loader metadata, classifier tags, and chunk provenance
 into the final metadata structure stored alongside each chunk.
 """
-from __future__ import annotations
 
 from typing import Any
 
-from backend.rag.ingestion.chunker import LegalChunk
+
 
 
 def build_chunk_metadata(
@@ -737,10 +702,11 @@ def build_chunk_metadata(
         "page": chunk.page,
         "section": chunk.section,
         "subsection": chunk.subsection,
-        "topic": classification.get("topic", "general"),
-        "legal_domain": classification.get("legal_domain", "general"),
-        "beneficiary": classification.get("beneficiary", "citizen"),
-        "jurisdiction": "india",
+        "topic": classification.get("topic", "unknown"),
+        "legal_domain": classification.get("legal_domain", "unknown"),
+        "beneficiary": classification.get("beneficiary", "unknown"),
+        "jurisdiction": (extra or {}).get("jurisdiction") or chunk.metadata.get("jurisdiction") or "unknown",
+        "act": chunk.source or chunk.document_name,
         "language": chunk.language,
         "original_text": chunk.original_text,
         # We do NOT replace the original text with AI summaries.
@@ -753,7 +719,9 @@ def build_chunk_metadata(
 
     if extra:
         for key, value in extra.items():
-            if key not in metadata:
+            if value in (None, ""):
+                continue
+            if key not in metadata or metadata.get(key) in (None, "", "unknown"):
                 metadata[key] = value
 
     return metadata
@@ -789,7 +757,6 @@ Uses paraphrase-multilingual-MiniLM-L12-v2 (or configured model) for both
 ingestion and query-time embedding.  This is the SINGLE source of truth
 for the embedding model — no other module should instantiate its own.
 """
-from __future__ import annotations
 
 import logging
 import math
@@ -874,14 +841,14 @@ def get_embedding_dimension() -> int:
 Handles creation/recreation of Qdrant collections and BM25 pickle indices.
 Uses the Qdrant client directly (not through LangChain wrappers).
 """
-from __future__ import annotations
 
 import logging
 import re
+import uuid
 from typing import Any
 
 from backend.config import BM25_PATH, SETTINGS
-from backend.ai.knowledge_base.store import save_pickle
+from backend.rag.store import save_pickle
 
 logger = logging.getLogger(__name__)
 
@@ -953,9 +920,10 @@ def index_qdrant(records: list[dict[str, Any]], recreate: bool = False) -> int:
         # Payload is everything except the embedding vector
         payload = {k: v for k, v in record.items() if k != "embedding"}
 
+        point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(record.get("chunk_id") or idx)))
         points.append(
             rest.PointStruct(
-                id=idx,
+                id=point_id,
                 vector=embedding,
                 payload=payload,
             )

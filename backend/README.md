@@ -15,7 +15,7 @@ Hybrid retrieval uses Qdrant for semantic search, BM25 for exact legal terms, Re
 ```bash
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload
+uvicorn backend.main:app --reload
 ```
 
 Open `http://localhost:8000/docs`.
