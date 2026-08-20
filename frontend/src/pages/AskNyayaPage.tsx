@@ -12,19 +12,123 @@ type Message = {
   nextAction?: string | null;
   evidenceStatus?: string | null;
   timestamp: string;
+  audioUrl?: string; // Cached audio object URL
+  language?: string; // Resolved TTS language for this message
 };
 
-/** Render a string or string[] as a bullet list or paragraph */
-function RenderTextOrList({ value }: { value: string | string[] | undefined }) {
+type CitationLike = string | Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function renderInlineValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => (
+      <span key={index}>
+        {index > 0 ? ', ' : ''}
+        {renderInlineValue(item)}
+      </span>
+    ));
+  }
+  if (isRecord(value)) {
+    const act = value.act ?? value.document_name ?? value.law ?? value.source;
+    const section = value.section;
+    const point = value.point;
+    const parts: React.ReactNode[] = [];
+
+    if (act) {
+      parts.push(<div key="act"><strong>Act:</strong> {String(act)}</div>);
+    }
+    if (section) {
+      parts.push(<div key="section"><strong>Section:</strong> {String(section)}</div>);
+    }
+    if (point) {
+      parts.push(<div key="point">{renderInlineValue(point)}</div>);
+    }
+
+    if (parts.length > 0) {
+      return <div>{parts}</div>;
+    }
+
+    return (
+      <div style={{ fontSize: '0.85rem' }}>
+        {Object.entries(value).map(([key, val]) => (
+          <div key={key} style={{ marginBottom: '0.15rem' }}>
+            <strong>{key.replace(/_/g, ' ')}:</strong> {renderInlineValue(val)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return String(value);
+}
+
+/** Render a string, structured object, or array safely */
+function RenderTextOrList({ value }: { value: unknown }) {
   if (!value) return null;
   if (Array.isArray(value)) {
     return (
       <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem' }}>
-        {value.map((item, i) => <li key={i}>{item}</li>)}
+        {value.map((item, i) => (
+          <li key={i}>{renderInlineValue(item)}</li>
+        ))}
       </ul>
     );
   }
-  return <div className="ai-section-text">{value}</div>;
+  return <div className="ai-section-text">{renderInlineValue(value)}</div>;
+}
+
+function CitationItem({ citation }: { citation: CitationLike }) {
+  if (typeof citation === 'string') {
+    return <div className="ai-section-text">{citation}</div>;
+  }
+
+  const act = citation.act ?? citation.document_name ?? citation.law ?? citation.source;
+  const section = citation.section;
+  const point = citation.point;
+  const extraFields = Object.entries(citation).filter(([key]) => !['act', 'document_name', 'law', 'source', 'section', 'point'].includes(key));
+
+  return (
+    <div style={{ display: 'grid', gap: '0.35rem' }}>
+      {act ? <div><strong>Act:</strong> {renderInlineValue(act)}</div> : null}
+      {section ? <div><strong>Section:</strong> {renderInlineValue(section)}</div> : null}
+      {point ? <div>{renderInlineValue(point)}</div> : null}
+      {extraFields.length > 0 && (
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          {extraFields.map(([key, val]) => (
+            <div key={key} style={{ marginBottom: '0.15rem' }}>
+              <strong>{key.replace(/_/g, ' ')}:</strong> {renderInlineValue(val)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CitationsBlock({ citations }: { citations: unknown }) {
+  if (!citations) return null;
+
+  const items = Array.isArray(citations) ? citations : [citations];
+  if (items.length === 0) return null;
+
+  return (
+    <div className="ai-citation" style={{ display: 'grid', gap: '0.5rem' }}>
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        {items.map((citation, i) => (
+          <div key={i} style={{ display: 'grid', gap: '0.25rem' }}>
+            <CitationItem citation={isRecord(citation) || typeof citation === 'string' ? citation : String(citation)} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function AIResponseCard({ reply, evidenceStatus }: { reply: ChatReply; evidenceStatus?: string | null }) {
@@ -93,7 +197,7 @@ function AIResponseCard({ reply, evidenceStatus }: { reply: ChatReply; evidenceS
         <div style={{ fontSize: '0.9rem' }}>
           {Object.entries(reply.user_document_extraction).map(([key, val]) => (
             <div key={key} style={{ marginBottom: '0.25rem' }}>
-              <strong>{key.replace(/_/g, ' ')}:</strong> {String(val)}
+              <strong>{key.replace(/_/g, ' ')}:</strong> {renderInlineValue(val)}
             </div>
           ))}
         </div>
@@ -130,12 +234,7 @@ function AIResponseCard({ reply, evidenceStatus }: { reply: ChatReply; evidenceS
   if (reply.citations && reply.citations.length > 0) {
     sections.push({
       label: 'Citations',
-      content: (
-        <div className="ai-citation">
-          <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          {reply.citations.join(' | ')}
-        </div>
-      ),
+      content: <CitationsBlock citations={reply.citations} />,
     });
   }
 
@@ -188,13 +287,30 @@ function AIResponseCard({ reply, evidenceStatus }: { reply: ChatReply; evidenceS
 }
 
 export default function AskNyayaPage() {
-    const { token } = useAuth();
+    const { token, user, logout } = useAuth();
     const navigate = useNavigate();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
+
+    // Audio recording & synthesis states
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
+    const [recordError, setRecordError] = useState<string | null>(null);
+    const [ttsError, setTtsError] = useState<string | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+
+    const [voiceLanguage, setVoiceLanguage] = useState<string>('en-IN');
+    const isInputFromSpeech = useRef<boolean>(false);
+
+    useEffect(() => {
+        if (user?.preferred_language) {
+            setVoiceLanguage(getLangCode(user.preferred_language));
+        }
+    }, [user]);
 
     const scrollToBottom = () => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -219,14 +335,158 @@ export default function AskNyayaPage() {
         return `Today, ${h}:${m < 10 ? '0' : ''}${m} ${ampm}`;
     };
 
+    const getLangCode = (prefLang: string | null | undefined) => {
+        if (prefLang === 'hi') return 'hi-IN';
+        if (prefLang === 'kn') return 'kn-IN';
+        return 'en-IN';
+    };
+
+    const detectScriptLanguage = (text: string): string | null => {
+        if (/[\u0900-\u097F]/.test(text)) {
+            return 'hi-IN';
+        }
+        if (/[\u0C80-\u0CFF]/.test(text)) {
+            return 'kn-IN';
+        }
+        return null;
+    };
+
+    const fetchTTS = async (text: string, langCode: string) => {
+        try {
+            const blob = await api.synthesizeText(token || '', text, langCode);
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.error("TTS generation error:", error);
+            return null;
+        }
+    };
+
+    const handlePlayTTS = async (msg: Message) => {
+        if (msg.audioUrl) {
+            const audio = new Audio(msg.audioUrl);
+            audio.play().catch(err => {
+                console.error("Audio playback failed:", err);
+                setTtsError("Audio playback unavailable.");
+                setTimeout(() => setTtsError(null), 3000);
+            });
+        } else {
+            try {
+                const msgLang = msg.language || voiceLanguage;
+                const url = await fetchTTS(msg.text, msgLang);
+                if (url) {
+                    msg.audioUrl = url;
+                    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, audioUrl: url } : m));
+                    const audio = new Audio(url);
+                    audio.play().catch(err => {
+                        console.error("Audio playback failed:", err);
+                        setTtsError("Audio playback unavailable.");
+                        setTimeout(() => setTtsError(null), 3000);
+                    });
+                } else {
+                    setTtsError("Audio playback unavailable.");
+                    setTimeout(() => setTtsError(null), 3000);
+                }
+            } catch (err) {
+                console.error("TTS fetch failed:", err);
+                setTtsError("Audio playback unavailable.");
+                setTimeout(() => setTtsError(null), 3000);
+            }
+        }
+    };
+
+    const startRecording = async () => {
+        setRecordError(null);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            let mimeType = 'audio/webm';
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                mimeType = 'audio/webm;codecs=opus';
+            } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                mimeType = 'audio/ogg;codecs=opus';
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                mimeType = 'audio/mp4';
+            }
+            
+            const mediaRecorder = new MediaRecorder(stream, { mimeType });
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+            
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                stream.getTracks().forEach(track => track.stop());
+                
+                setIsTranscribing(true);
+                try {
+                    const res = await api.transcribeAudio(token || '', audioBlob, voiceLanguage);
+                    setInputValue(res.text);
+                    if (res.language) {
+                        setVoiceLanguage(res.language);
+                    }
+                    isInputFromSpeech.current = true;
+                } catch (err) {
+                    console.error("Transcribe failed:", err);
+                    setRecordError("Could not understand the audio. Please try again.");
+                } finally {
+                    setIsTranscribing(false);
+                }
+            };
+            
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (err: any) {
+            console.error("Microphone permission denied:", err);
+            setRecordError("Microphone permission is required for voice input.");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
+
+    const handleMicClick = () => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    };
+
     const handleSend = async (text: string) => {
         if (!text.trim() || !token) return;
+
+        let queryLang = voiceLanguage;
+        if (isInputFromSpeech.current) {
+            isInputFromSpeech.current = false;
+        } else {
+            const scriptLang = detectScriptLanguage(text);
+            if (scriptLang) {
+                queryLang = scriptLang;
+            } else if (user?.preferred_language === 'hi') {
+                queryLang = 'hi-IN';
+            } else if (user?.preferred_language === 'kn') {
+                queryLang = 'kn-IN';
+            } else {
+                queryLang = 'en-IN';
+            }
+            setVoiceLanguage(queryLang);
+        }
 
         const userMsg: Message = {
             id: Date.now().toString(),
             sender: 'user',
             text,
-            timestamp: formatTime()
+            timestamp: formatTime(),
+            language: queryLang
         };
 
         setMessages(prev => [...prev, userMsg]);
@@ -237,16 +497,37 @@ export default function AskNyayaPage() {
             const res = await api.askQuestion(token, text, conversationId);
             setConversationId(res.conversation_id);
             
+            const aiText = res.reply.your_right || res.reply.summary || 'I have processed your request.';
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 sender: 'ai',
-                text: res.reply.your_right || res.reply.summary || 'I have processed your request.',
+                text: aiText,
                 reply: res.reply,
                 nextAction: res.next_action,
                 evidenceStatus: res.evidence_status,
-                timestamp: formatTime()
+                timestamp: formatTime(),
+                language: queryLang
             };
             setMessages(prev => [...prev, aiMsg]);
+
+            // Pre-fetch TTS and attempt autoplay
+            try {
+                const blob = await api.synthesizeText(token, aiText, queryLang);
+                const audioUrl = URL.createObjectURL(blob);
+                aiMsg.audioUrl = audioUrl;
+                
+                // Save URL inside the message cache
+                setMessages(prev => prev.map(m => m.id === aiMsg.id ? { ...m, audioUrl } : m));
+                
+                const audio = new Audio(audioUrl);
+                audio.play().catch(e => {
+                    console.log("Autoplay blocked or failed:", e);
+                });
+            } catch (err) {
+                console.error("TTS fetch on receive failed:", err);
+                setTtsError("Audio playback unavailable.");
+                setTimeout(() => setTtsError(null), 3000);
+            }
         } catch (error: any) {
             const errorMsg: Message = {
                 id: (Date.now() + 1).toString(),
@@ -264,14 +545,25 @@ export default function AskNyayaPage() {
         <div className="theme-ask-nyaya">
             <div className="page">
             <nav className="nav">
-                <div className="nav-left">
+                <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
                     <div className="ns-badge">NS</div>
                     <span className="ns-wordmark">Nyaya Setu</span>
                 </div>
                 <div className="nav-center">
                     <Link className="nav-link" to="/">Home</Link>
+                    {token && <Link className="nav-link" to="/dashboard">Dashboard</Link>}
                     <Link className="nav-link active" to="/ask-nyaya">Ask Nyaya</Link>
                     <Link className="nav-link" to="/know-your-rights">Know Your Rights</Link>
+                </div>
+                <div className="nav-right">
+                    {token ? (
+                        <button className="btn-login" onClick={logout}>Logout</button>
+                    ) : (
+                        <>
+                            <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
+                            <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                        </>
+                    )}
                 </div>
             </nav>
 
@@ -352,7 +644,31 @@ export default function AskNyayaPage() {
                                                         </div>
                                                     </div>
                                                 )}
-                                                <div className="msg-time">{msg.timestamp}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                                    <div className="msg-time">{msg.timestamp}</div>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => handlePlayTTS(msg)} 
+                                                        style={{ 
+                                                            background: 'none', 
+                                                            border: 'none', 
+                                                            cursor: 'pointer', 
+                                                            padding: '2px', 
+                                                            display: 'inline-flex', 
+                                                            alignItems: 'center', 
+                                                            color: 'var(--secondary)',
+                                                            transition: 'color 0.2s'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = 'var(--secondary)'}
+                                                        title="Listen to response"
+                                                    >
+                                                        <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -379,10 +695,15 @@ export default function AskNyayaPage() {
                     <div className="input-bar">
                         <textarea 
                             className="input-field" 
-                            placeholder="Ask a legal question..." 
+                            placeholder={isTranscribing ? "Transcribing voice..." : "Ask a legal question..."} 
                             rows={1}
                             value={inputValue}
-                            onChange={e => setInputValue(e.target.value)}
+                            disabled={isTranscribing}
+                            onChange={e => {
+                                setInputValue(e.target.value);
+                                isInputFromSpeech.current = false;
+                                if (recordError) setRecordError(null);
+                            }}
                             onKeyDown={e => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
@@ -391,14 +712,92 @@ export default function AskNyayaPage() {
                             }}
                         />
                         <div className="input-actions">
-                            <button className={`send-btn ${!inputValue.trim() ? 'disabled' : ''}`} onClick={() => handleSend(inputValue)}>
+                            {!isTranscribing && (
+                                <select 
+                                    value={voiceLanguage} 
+                                    onChange={e => {
+                                        setVoiceLanguage(e.target.value);
+                                        isInputFromSpeech.current = false;
+                                    }}
+                                    style={{
+                                        background: 'transparent',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '18px',
+                                        color: 'var(--secondary)',
+                                        fontSize: '12px',
+                                        padding: '2px 8px',
+                                        marginRight: '8px',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        height: '28px',
+                                        fontFamily: 'var(--sans)',
+                                        fontWeight: '500'
+                                    }}
+                                    title="Voice language"
+                                >
+                                    <option value="en-IN">English</option>
+                                    <option value="hi-IN">Hindi</option>
+                                    <option value="kn-IN">Kannada</option>
+                                </select>
+                            )}
+                            {isTranscribing ? (
+                                <span style={{ fontSize: '0.85rem', color: 'var(--accent)', marginRight: '8px', alignSelf: 'center', fontWeight: '500' }}>Transcribing...</span>
+                            ) : (
+                                <button 
+                                    type="button"
+                                    className="icon-btn" 
+                                    onClick={handleMicClick}
+                                    style={{ 
+                                      marginRight: '4px',
+                                      background: isRecording ? 'rgba(220, 20, 60, 0.1)' : 'transparent',
+                                      borderRadius: '50%'
+                                    }}
+                                    title={isRecording ? "Stop Recording" : "Record Voice"}
+                                >
+                                    {isRecording ? (
+                                        <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }}>
+                                            <circle cx="12" cy="12" r="9" fill="red" />
+                                        </svg>
+                                    ) : (
+                                        <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }}>
+                                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" stroke="currentColor" fill="none" strokeWidth="2"/>
+                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" fill="none" strokeWidth="2"/>
+                                            <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    )}
+                                </button>
+                            )}
+                            <button className={`send-btn ${!inputValue.trim() || isTranscribing ? 'disabled' : ''}`} onClick={() => handleSend(inputValue)}>
                                 <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             </button>
                         </div>
                     </div>
+                    {recordError && (
+                        <div style={{ color: 'red', fontSize: '0.8rem', marginTop: '4px', textAlign: 'center' }}>
+                            ⚠️ {recordError}
+                        </div>
+                    )}
                     <div className="input-hint">Nyaya Setu provides legal information, not legal advice. For case-specific guidance, consult a licensed advocate.</div>
                 </div>
             </div>
+
+            {ttsError && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '100px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(220, 20, 60, 0.9)',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    zIndex: 1000,
+                    fontSize: '0.85rem',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}>
+                    {ttsError}
+                </div>
+            )}
         </div>
         </div>
     );

@@ -209,11 +209,9 @@ def evidence_gate_node(state: PipelineState) -> dict[str, Any]:
 
 
 def evidence_router(state: PipelineState) -> str:
-    status = state.get("evidence_status") or ""
-    if status == "no_evidence" or not (state.get("chunks") or []):
+    # Disable blocking behavior for demo: proceed to generate if chunks exist, otherwise refuse.
+    if not (state.get("chunks") or []):
         return "refuse"
-    if status == "insufficient" or not state.get("evidence_sufficient", False):
-        return "clarify"
     return "generate"
 
 

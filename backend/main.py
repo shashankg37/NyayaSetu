@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from backend.api import auth, chat, documents, drafting, lawyers, research, users, voice
+from backend.api import auth, chat, documents, drafting, lawyers, research, users, voice, speech
 from backend.config import get_settings
 from backend.database import Base, ensure_sqlite_schema, engine
 import backend.models.database  # noqa: F401
@@ -84,5 +84,6 @@ app.include_router(documents.router, prefix=settings.api_v1_str)
 app.include_router(drafting.router, prefix=settings.api_v1_str)
 app.include_router(chat.router, prefix=f"{settings.api_v1_str}/chat")
 app.include_router(voice.router, prefix=f"{settings.api_v1_str}/voice")
+app.include_router(speech.router, prefix=f"{settings.api_v1_str}/speech")
 app.include_router(research.router, prefix=settings.api_v1_str)
 app.include_router(lawyers.router, prefix=settings.api_v1_str)

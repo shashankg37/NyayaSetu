@@ -23,8 +23,8 @@ export type ChatReply = {
   what_you_can_do?: string | string[];
   remedy?: string;
   next_step?: string;
-  citations?: string[];
-  source?: string | null;
+  citations?: Array<string | Record<string, unknown>>;
+  source?: string | Record<string, unknown> | null;
   disclaimer?: string;
   fallback_used?: boolean;
   service_error?: boolean;
@@ -160,5 +160,41 @@ export const api = {
       },
       token,
     );
+  },
+
+  async transcribeAudio(token: string, blob: Blob, language: string): Promise<{ text: string; language: string }> {
+    const formData = new FormData();
+    formData.append('file', blob, 'voice.webm');
+    formData.append('language', language);
+
+    return request<{ text: string; language: string }>(
+      '/speech/transcribe',
+      {
+        method: 'POST',
+        body: formData,
+      },
+      token,
+    );
+  },
+
+  async synthesizeText(token: string, text: string, language: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE}/speech/synthesize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text, language }),
+    });
+    if (!response.ok) {
+      const payload = await response.text();
+      let msg = 'Request failed';
+      try {
+        const data = JSON.parse(payload);
+        msg = data?.detail || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+    return response.blob();
   },
 };

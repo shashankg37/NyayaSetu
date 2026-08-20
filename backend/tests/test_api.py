@@ -75,3 +75,35 @@ def test_drafting_and_research_and_lawyers(monkeypatch):
     matched = client.post("/api/v1/lawyers/match", json={"legal_domain": "labour", "state": "Karnataka"}, headers=headers)
     assert matched.status_code == 200
     assert "matches" in matched.json()
+
+
+def test_speech_endpoints(monkeypatch):
+    headers = _auth_headers()
+    
+    # Mock STT transcribe
+    monkeypatch.setattr("backend.api.speech.transcribe", lambda audio_bytes, source_language: "Mocked Transcript")
+    
+    # Mock TTS synthesize
+    monkeypatch.setattr("backend.api.speech.synthesize", lambda text, target_language: b"Mocked Audio Bytes")
+    
+    # Test transcribe endpoint
+    audio_data = b"RIFF" + b"0" * 120
+    files = {"file": ("test.webm", audio_data, "audio/webm")}
+    response = client.post(
+        "/api/v1/speech/transcribe",
+        data={"language": "en-IN"},
+        files=files,
+        headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["text"] == "Mocked Transcript"
+    
+    # Test synthesize endpoint
+    response = client.post(
+        "/api/v1/speech/synthesize",
+        json={"text": "Hello world", "language": "en-IN"},
+        headers=headers
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content == b"Mocked Audio Bytes"

@@ -123,14 +123,16 @@ def search_bm25(query: str, top_k: int = 10) -> list[dict[str, Any]]:
         if bm25 is not None and records:
             scores = bm25.get_scores(_tokenize(query))
             indexed = [(idx, float(score)) for idx, score in enumerate(scores) if score > 0]
-            indexed.sort(key=lambda item: (-item[1], str(records[item[0]].get("chunk_id", ""))))
-            results = []
-            for idx, score in indexed[:top_k]:
-                record = dict(records[idx])
-                record["score"] = score
-                record["retrieval_source"] = "bm25"
-                results.append(record)
-            return results
+            if indexed:
+                indexed.sort(key=lambda item: (-item[1], str(records[item[0]].get("chunk_id", ""))))
+                results = []
+                for idx, score in indexed[:top_k]:
+                    record = dict(records[idx])
+                    record["score"] = score
+                    record["retrieval_source"] = "bm25"
+                    results.append(record)
+                return results
+            logger.info("Saved BM25 index returned no positive scores; using overlap fallback.")
         return rank_bm25(query, records, top_k=top_k)
     except Exception as e:
         logger.error("BM25 search failed: %s", e)

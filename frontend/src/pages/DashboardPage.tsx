@@ -1,10 +1,11 @@
 import './DashboardPage.css';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
+    const navigate = useNavigate();
     const { token, logout } = useAuth();
     const [profile, setProfile] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
@@ -22,17 +23,18 @@ export default function DashboardPage() {
         <div className="theme-dashboard">
             <div className="page">
             <nav className="nav">
-                <div className="nav-left">
+                <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
                     <div className="ns-badge">NS</div>
                     <span className="ns-wordmark">Nyaya Setu</span>
                 </div>
                 <div className="nav-center">
                     <Link className="nav-link" to="/">Home</Link>
+                    <Link className="nav-link active" to="/dashboard">Dashboard</Link>
                     <Link className="nav-link" to="/ask-nyaya">Ask Nyaya</Link>
-                    <Link className="nav-link" to="/upload">Upload Document</Link>
+                    <Link className="nav-link" to="/know-your-rights">Know Your Rights</Link>
                 </div>
                 <div className="nav-right">
-                    <button className="btn-outline-pill" onClick={logout}>Logout</button>
+                    <button className="btn-login" onClick={logout}>Logout</button>
                 </div>
             </nav>
 
@@ -42,23 +44,23 @@ export default function DashboardPage() {
                     {loading ? 'Loading...' : `Welcome, ${profile?.full_name || profile?.email?.split('@')[0] || 'User'}`}
                 </h1>
 
-                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                    <div className="dashboard-card" style={{ background: 'var(--surface)', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                <div className="dashboard-grid">
+                    <div className="dashboard-card">
                         <h3>Ask Nyaya</h3>
-                        <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>Get instant legal guidance grounded in Indian law.</p>
-                        <Link to="/ask-nyaya" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>Start Chat</Link>
+                        <p>Get instant legal guidance grounded in Indian law.</p>
+                        <Link to="/ask-nyaya" className="dashboard-btn">Start Chat</Link>
                     </div>
 
-                    <div className="dashboard-card" style={{ background: 'var(--surface)', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                    <div className="dashboard-card">
                         <h3>Analyze Document</h3>
-                        <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>Upload legal notices, contracts, or FIRs for AI analysis.</p>
-                        <Link to="/upload" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>Upload File</Link>
+                        <p>Upload legal notices, contracts, or FIRs for AI analysis.</p>
+                        <Link to="/upload" className="dashboard-btn">Upload File</Link>
                     </div>
 
-                    <div className="dashboard-card" style={{ background: 'var(--surface)', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                    <div className="dashboard-card">
                         <h3>Know Your Rights</h3>
-                        <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>Explore legal guides, templates, and procedures.</p>
-                        <Link to="/know-your-rights" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>Explore Library</Link>
+                        <p>Explore legal guides, templates, and procedures.</p>
+                        <Link to="/know-your-rights" className="dashboard-btn">Explore Library</Link>
                     </div>
                 </div>
             </div>

@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function UploadPage() {
-    const { token } = useAuth();
+    const { token, logout } = useAuth();
     const navigate = useNavigate();
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -39,14 +39,25 @@ export default function UploadPage() {
         <div className="theme-upload">
             <div className="page">
             <nav className="nav">
-                <div className="nav-left">
+                <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
                     <div className="ns-badge">NS</div>
                     <span className="ns-wordmark">Nyaya Setu</span>
                 </div>
                 <div className="nav-center">
                     <Link className="nav-link" to="/">Home</Link>
+                    {token && <Link className="nav-link" to="/dashboard">Dashboard</Link>}
                     <Link className="nav-link" to="/ask-nyaya">Ask Nyaya</Link>
                     <Link className="nav-link" to="/know-your-rights">Know Your Rights</Link>
+                </div>
+                <div className="nav-right">
+                    {token ? (
+                        <button className="btn-login" onClick={logout}>Logout</button>
+                    ) : (
+                        <>
+                            <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
+                            <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                        </>
+                    )}
                 </div>
             </nav>
 

@@ -96,11 +96,18 @@ class Settings(BaseSettings):
     evidence_coverage_min: float = 0.2
 
     # ------------------------------------------------------------------
-    # Primary LLM — Hugging Face
+    # Primary LLM — Groq
     # ------------------------------------------------------------------
-    llm_provider: str = "hf"
+    llm_provider: str = "groq"
 
-    llm_model: str = "Qwen/Qwen3.5-27B"
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.6-27b"
+
+    llm_model: str = "qwen/qwen3.6-27b"
+
+    # ------------------------------------------------------------------
+    # Legacy Hugging Face fallback
+    # ------------------------------------------------------------------
     hf_provider: str = "featherless-ai"
 
     hf_api_url: str = (

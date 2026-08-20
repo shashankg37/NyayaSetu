@@ -1,8 +1,10 @@
 import './LandingPage.css';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function LandingPage() {
     const navigate = useNavigate();
+    const { token, logout } = useAuth();
 
     return (
         <div className="theme-landing">
@@ -15,12 +17,19 @@ export default function LandingPage() {
               </div>
               <div className="nav-center">
                 <Link to="/">Home</Link>
+                {token && <Link to="/dashboard">Dashboard</Link>}
                 <Link to="/ask-nyaya">Ask Nyaya</Link>
                 <Link to="/know-your-rights">Know Your Rights</Link>
               </div>
               <div className="nav-right">
-                <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
-                <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                {token ? (
+                  <button className="btn-login" onClick={logout}>Logout</button>
+                ) : (
+                  <>
+                    <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
+                    <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                  </>
+                )}
               </div>
             </nav>
 
@@ -29,15 +38,18 @@ export default function LandingPage() {
               <div className="hero-content">
                 <p className="hero-eyebrow">Bridge to Justice</p>
                 <h1 className="hero-headline">Know Your Rights.<br />Know Your Next Step.</h1>
-                <p className="hero-body">Nyaya Setu helps Indian citizens understand their legal rights, analyze documents, and take action — in their language.</p>
                 <div className="hero-actions">
-                  <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                  {token ? (
+                    <button className="btn-primary" onClick={() => navigate('/dashboard')}>Go to Dashboard</button>
+                  ) : (
+                    <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                  )}
                   <button className="btn-outline" onClick={() => navigate('/ask-nyaya')}>Ask Nyaya</button>
                 </div>
               </div>
               <div className="hero-image">
                 <span className="hero-watermark">JUSTICE</span>
-                <img src="mt1i0ybc-lady.png" alt="Lady Justice" />
+                <img src="/lady.png" alt="Lady Justice" />
               </div>
             </section>
 

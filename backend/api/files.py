@@ -9,7 +9,7 @@ from fastapi import HTTPException, UploadFile
 from backend.config import get_settings
 
 ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
-ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".ogg", ".m4a"}
+ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".ogg", ".m4a", ".webm"}
 ALLOWED_DOCUMENT_MIME = {
     "application/pdf",
     "image/png",
@@ -27,6 +27,8 @@ ALLOWED_AUDIO_MIME = {
     "audio/ogg",
     "audio/mp4",
     "audio/x-m4a",
+    "audio/webm",
+    "audio/webm;codecs=opus",
     "application/octet-stream",
 }
 MAGIC = {

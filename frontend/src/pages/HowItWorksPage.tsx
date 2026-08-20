@@ -1,8 +1,10 @@
 import './HowItWorksPage.css';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function HowItWorksPage() {
     const navigate = useNavigate();
+    const { token, logout } = useAuth();
 
     return (
         <div className="theme-how-it-works">
@@ -15,12 +17,19 @@ export default function HowItWorksPage() {
               </div>
               <div className="nav-center">
                 <Link to="/">Home</Link>
+                {token && <Link to="/dashboard">Dashboard</Link>}
                 <Link to="/ask-nyaya">Ask Nyaya</Link>
                 <Link to="/know-your-rights">Know Your Rights</Link>
               </div>
               <div className="nav-right">
-                <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
-                <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                {token ? (
+                  <button className="btn-login" onClick={logout}>Logout</button>
+                ) : (
+                  <>
+                    <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
+                    <button className="btn-primary" onClick={() => navigate('/signup')}>Get Started</button>
+                  </>
+                )}
               </div>
             </nav>
 

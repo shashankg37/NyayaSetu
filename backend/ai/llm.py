@@ -1,12 +1,13 @@
 """Provider-agnostic LLM interface for NyayaSetu.
 
-Primary path: Hugging Face Inference (Qwen). Gemini remains an optional fallback.
+Primary path: Groq (Qwen). Hugging Face and Gemini remain optional fallbacks.
 """
 from __future__ import annotations
 
 import base64
 import json
 import logging
+import re
 from typing import Any, Protocol
 
 import requests
@@ -23,9 +24,14 @@ class LLMUnavailableError(RuntimeError):
 def safe_json_loads(text: str) -> dict[str, Any] | None:
     if not text:
         return None
-    candidates = [text]
-    if "```" in text:
-        candidates.extend(segment for segment in text.split("```") if segment.strip())
+    # Strip <think>...</think> block if present (useful for reasoning models)
+    cleaned_text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    # Also strip open-ended think tag if it didn't close
+    cleaned_text = re.sub(r"<think>.*", "", cleaned_text, flags=re.DOTALL)
+
+    candidates = [cleaned_text]
+    if "```" in cleaned_text:
+        candidates.extend(segment for segment in cleaned_text.split("```") if segment.strip())
     for candidate in candidates:
         candidate = candidate.strip()
         start = candidate.find("{")
@@ -214,6 +220,62 @@ class HuggingFaceProvider:
             return None
 
 
+class GroqProvider:
+    """Groq OpenAI-compatible chat completion provider for Qwen."""
+
+    def generate(self, prompt: str, **kwargs: Any) -> str | None:
+        if not SETTINGS.groq_api_key:
+            logger.warning("Groq API key missing")
+            return None
+
+        max_tokens = int(
+            kwargs.get("max_new_tokens")
+            or kwargs.get("max_tokens")
+            or 4000
+        )
+        temperature = float(kwargs.get("temperature", 0.1))
+
+        try:
+            from groq import Groq  # type: ignore
+
+            client = Groq(api_key=SETTINGS.groq_api_key)
+            logger.info("Groq model=%s", SETTINGS.groq_model)
+            completion = client.chat.completions.create(
+                model=SETTINGS.groq_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            content = completion.choices[0].message.content
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+            if isinstance(content, list):
+                parts = [
+                    str(part.get("text", ""))
+                    for part in content
+                    if isinstance(part, dict)
+                ]
+                text = "".join(parts).strip()
+                return text or None
+            return None
+        except Exception as exc:
+            logger.error("Groq generation failed: %s", exc)
+            return None
+
+    def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
+        json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. Do not include markdown fences."
+        text = self.generate(json_prompt, **kwargs)
+        return safe_json_loads(text or "")
+
+    def generate_json_with_image(self, prompt: str, image_bytes: bytes, mime_type: str, **kwargs: Any) -> dict[str, Any] | None:
+        return None
+
+
 class GeminiProvider:
     def _get_model(self):
         try:
@@ -277,6 +339,7 @@ class LocalProvider:
 
 
 _PROVIDERS: dict[str, LLMProvider] = {
+    "groq": GroqProvider(),
     "hf": HuggingFaceProvider(),
     "gemini": GeminiProvider(),
     "local": LocalProvider(),
@@ -285,7 +348,7 @@ _PROVIDERS: dict[str, LLMProvider] = {
 
 def get_provider(name: str | None = None) -> LLMProvider:
     provider_name = name or SETTINGS.llm_provider
-    return _PROVIDERS.get(provider_name) or _PROVIDERS["hf"]
+    return _PROVIDERS.get(provider_name) or _PROVIDERS["groq"]
 
 
 def generate_json_from_any(prompt: str) -> dict[str, Any] | None:
@@ -378,6 +441,17 @@ def generate_answer(
         f"User document extraction (not law):\n{extracted}\n\nOfficial evidence:\n{_build_context(chunks)}"
     )
     provider = get_provider()
+    # Safe logging of provider and model (NEVER log the API key)
+    logger.info("LLM provider: %s", getattr(SETTINGS, "llm_provider", "unknown"))
+    if getattr(SETTINGS, "llm_provider", None) == "groq":
+        logger.info("LLM model: %s", getattr(SETTINGS, "groq_model", "unknown"))
+    elif getattr(SETTINGS, "llm_provider", None) == "hf":
+        logger.info("LLM model: %s", getattr(SETTINGS, "llm_model", "unknown"))
+    elif getattr(SETTINGS, "llm_provider", None) == "gemini":
+        logger.info("LLM model: %s", getattr(SETTINGS, "gemini_model", "unknown"))
+    else:
+        logger.info("LLM model: unknown")
+
     provider_answer = provider.generate_json(prompt)
     if not provider_answer:
         return _fallback_response(
