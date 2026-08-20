@@ -31,4 +31,5 @@ pillow
 requests
 beautifulsoup4
 huggingface_hub
+transformers
 

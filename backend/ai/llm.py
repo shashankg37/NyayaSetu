@@ -41,22 +41,29 @@ def safe_json_loads(text: str) -> dict[str, Any] | None:
 
 def citations_from_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     citations: list[dict[str, Any]] = []
-    seen: set[tuple[Any, Any, Any]] = set()
+    seen: set[tuple[Any, Any, Any, Any]] = set()
     for chunk in chunks:
-        act = chunk.get("act") or chunk.get("document_name") or chunk.get("source")
+        document_name = chunk.get("document_name") or chunk.get("act") or chunk.get("source")
+        act = chunk.get("act") or document_name
         section = chunk.get("section") or None
         page = chunk.get("page")
+        year = chunk.get("year")
         url = chunk.get("source_url") or None
-        key = (act, section, page)
-        if not act or key in seen:
+        key = (act, section, page, year)
+        if not document_name and not act:
+            continue
+        if key in seen:
             continue
         seen.add(key)
         citations.append(
             {
-                "document_name": chunk.get("document_name") or act,
+                "document_name": document_name,
                 "act": act,
+                "law": act,
                 "section": section,
                 "page": page,
+                "year": year,
+                "source": chunk.get("source") or document_name,
                 "source_url": url,
             }
         )
@@ -101,6 +108,7 @@ class HuggingFaceProvider:
             from huggingface_hub import InferenceClient  # type: ignore
 
             client = InferenceClient(token=SETTINGS.hf_api_key)
+            logger.info("Hugging Face inference model=%s", SETTINGS.llm_model)
             completion = client.chat.completions.create(
                 model=SETTINGS.llm_model,
                 messages=[{"role": "user", "content": prompt}],
@@ -222,31 +230,11 @@ def get_provider(name: str | None = None) -> LLMProvider:
 
 
 def generate_json_from_any(prompt: str) -> dict[str, Any] | None:
-    provider = get_provider()
-    result = provider.generate_json(prompt)
-    if result is not None:
-        return result
-    for fallback in ("gemini", "hf"):
-        if fallback == SETTINGS.llm_provider:
-            continue
-        result = _PROVIDERS[fallback].generate_json(prompt)
-        if result is not None:
-            return result
-    return None
+    return get_provider().generate_json(prompt)
 
 
 def generate_text_from_any(prompt: str) -> str | None:
-    provider = get_provider()
-    result = provider.generate(prompt)
-    if result:
-        return result
-    for fallback in ("gemini", "hf"):
-        if fallback == SETTINGS.llm_provider:
-            continue
-        result = _PROVIDERS[fallback].generate(prompt)
-        if result:
-            return result
-    return None
+    return get_provider().generate(prompt)
 
 
 def _fallback_response(query: str, chunks: list[dict[str, Any]], reason: str, service_error: bool = False) -> dict[str, Any]:
@@ -281,6 +269,8 @@ def _build_context(chunks: list[dict[str, Any]]) -> str:
                     f"act/source: {chunk.get('act') or chunk.get('source', '')}",
                     f"section: {chunk.get('section', '')}",
                     f"page: {chunk.get('page', '')}",
+                    f"year: {chunk.get('year', '')}",
+                    f"language: {chunk.get('language', '')}",
                     f"source_url: {chunk.get('source_url', '')}",
                     f"text: {chunk.get('original_text') or chunk.get('simplified_text') or ''}",
                 ]
@@ -308,15 +298,24 @@ def generate_answer(
         extracted = json.dumps(extracted_document.get("extracted_fields") or {}, ensure_ascii=False)
 
     prompt = (
-        "You are Nyaya Setu, an Indian legal-awareness assistant. Use only the supplied official chunks. "
-        "Do not invent law, sections, cases, or URLs. If a fact is not in the chunks, say so. "
-        "Clearly separate: (1) facts from a user document if provided, (2) official knowledge-base text, "
-        "(3) your interpretation. Return JSON with keys: your_right, what_law_says, what_this_means, "
-        "what_you_can_do (array), interpretation, next_action. Do not include a numeric confidence score.\n\n"
+        "You are Nyaya Setu, an Indian legal-awareness assistant.\n"
+        "Answer using ONLY the supplied official evidence chunks.\n"
+        "Rules:\n"
+        "- Do not use general knowledge to fill legal gaps.\n"
+        "- Do not invent acts, sections, cases, years, pages, or URLs.\n"
+        "- If a fact is not in the evidence, say it is not in the supplied sources.\n"
+        "- State uncertainty clearly when the evidence is incomplete.\n"
+        "- Distinguish legal information from professional legal advice.\n"
+        "- Refer to sources only by the metadata provided with each chunk "
+        "(document/act, section, page, year). Do not create citations.\n"
+        "Return JSON with keys: your_right, what_law_says, what_this_means, "
+        "what_you_can_do (array), interpretation, next_action, uncertainty. "
+        "Do not include a numeric confidence score. Do not include a citations array.\n\n"
         f"Conversation:\n{history_text}\n\nQuestion:\n{query}\n\n"
-        f"User document extraction (not law):\n{extracted}\n\nOfficial chunks:\n{_build_context(chunks)}"
+        f"User document extraction (not law):\n{extracted}\n\nOfficial evidence:\n{_build_context(chunks)}"
     )
-    provider_answer = generate_json_from_any(prompt)
+    provider = get_provider()
+    provider_answer = provider.generate_json(prompt)
     if not provider_answer:
         return _fallback_response(
             query,

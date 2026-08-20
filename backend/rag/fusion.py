@@ -1,7 +1,16 @@
 """Reciprocal Rank Fusion (RRF) for combining multiple retrieval signals."""
 from __future__ import annotations
 
+import hashlib
 from typing import Any
+
+
+def _chunk_key(chunk: dict[str, Any]) -> str:
+    cid = str(chunk.get("chunk_id") or "").strip()
+    if cid:
+        return cid
+    raw = f"{chunk.get('document_name', '')}|{chunk.get('section', '')}|{chunk.get('page', '')}|{chunk.get('original_text', '')[:240]}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def rrf_merge(
@@ -14,25 +23,17 @@ def rrf_merge(
 
     RRF_score = 1 / (k + rank_a) + 1 / (k + rank_b)
 
-    Args:
-        results_a: First ranked list (e.g. Qdrant).
-        results_b: Second ranked list (e.g. BM25).
-        k: Smoothing constant.
-        top_k: Max number of merged results to return.
-
-    Returns:
-        A single fused and sorted list of chunks.
+    Ties are broken by chunk_id so the ranking is deterministic.
     """
     scores: dict[str, float] = {}
     chunks: dict[str, dict[str, Any]] = {}
 
     def _add_ranks(results: list[dict[str, Any]]) -> None:
         for rank, chunk in enumerate(results, start=1):
-            cid = str(chunk.get("chunk_id", ""))
-            if not cid:
-                continue
+            cid = _chunk_key(chunk)
             if cid not in chunks:
                 chunks[cid] = dict(chunk)
+                chunks[cid]["chunk_id"] = chunk.get("chunk_id") or cid
                 chunks[cid]["retrieval_sources"] = []
             source = chunk.get("retrieval_source")
             if source and source not in chunks[cid]["retrieval_sources"]:
@@ -42,13 +43,10 @@ def rrf_merge(
     _add_ranks(results_a)
     _add_ranks(results_b)
 
-    # Sort by RRF score descending
-    sorted_cids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
-
+    sorted_cids = sorted(scores.keys(), key=lambda cid: (-scores[cid], cid))
     fused = []
     for cid in sorted_cids[:top_k]:
         record = dict(chunks[cid])
         record["fusion_score"] = scores[cid]
         fused.append(record)
-
     return fused

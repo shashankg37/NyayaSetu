@@ -30,6 +30,7 @@ class PipelineState(TypedDict, total=False):
     evidence_status: str
     evidence_decision: str
     evidence_sufficient: bool
+    evidence_verdict: str
     safety_status: str
     next_action: str
     answer: dict[str, Any]

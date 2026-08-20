@@ -1,15 +1,9 @@
-"""Qwen-VL document understanding with a non-authoritative extraction boundary."""
+"""Non-authoritative user-document extraction (text/PDF only; no vision model)."""
 from __future__ import annotations
 
-import base64
 import logging
 from io import BytesIO
 from typing import Any
-
-import requests
-
-from backend.ai.llm import safe_json_loads
-from backend.config import SETTINGS
 
 logger = logging.getLogger(__name__)
 
@@ -25,68 +19,6 @@ def _extract_pdf_text(file_bytes: bytes) -> str:
         return ""
 
 
-def _qwen_vision_extract(file_bytes: bytes, mime_type: str) -> dict[str, Any] | None:
-    if not SETTINGS.hf_api_key:
-        logger.warning("HF API key missing for vision extraction")
-        return None
-    prompt = (
-        "Analyze this legal document image or scanned page. Extract JSON with keys: "
-        "document_type, parties, dates, authorities, sections_mentioned, deadlines, "
-        "clauses, important_facts. Do not invent missing fields; use empty lists or null. "
-        "This extraction is not legal authority."
-    )
-    b64 = base64.b64encode(file_bytes).decode("ascii")
-    try:
-        from huggingface_hub import InferenceClient  # type: ignore
-
-        client = InferenceClient(token=SETTINGS.hf_api_key)
-        completion = client.chat.completions.create(
-            model=SETTINGS.vision_model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
-                    ],
-                }
-            ],
-            max_tokens=1000,
-            temperature=0.1,
-        )
-        text = completion.choices[0].message.content or ""
-        parsed = safe_json_loads(text)
-        if isinstance(parsed, dict):
-            return parsed
-    except Exception as exc:
-        logger.info("HF vision client failed, trying HTTP: %s", exc)
-
-    url = f"{SETTINGS.hf_api_url.rstrip('/')}/{SETTINGS.vision_model}"
-    payload = {
-        "inputs": {"text": prompt, "image": b64, "mime_type": mime_type},
-        "parameters": {"max_new_tokens": 1000, "temperature": 0.1},
-    }
-    try:
-        response = requests.post(
-            url,
-            headers={"Authorization": f"Bearer {SETTINGS.hf_api_key}"},
-            json=payload,
-            timeout=120,
-        )
-        response.raise_for_status()
-        data = response.json()
-        text = ""
-        if isinstance(data, list) and data:
-            text = str(data[0].get("generated_text") or data[0].get("text") or "")
-        elif isinstance(data, dict):
-            text = str(data.get("generated_text") or data.get("text") or "")
-        parsed = safe_json_loads(text)
-        return parsed if isinstance(parsed, dict) else None
-    except Exception as exc:
-        logger.error("Qwen-VL extraction failed: %s", exc)
-        return None
-
-
 def extract_document(file_bytes: bytes) -> dict[str, Any]:
     mime_type = "application/octet-stream"
     if file_bytes.startswith(b"%PDF"):
@@ -99,26 +31,17 @@ def extract_document(file_bytes: bytes) -> dict[str, Any]:
         mime_type = "image/webp"
 
     extracted_text = _extract_pdf_text(file_bytes) if mime_type == "application/pdf" else ""
-    structured = None
     vision_error = None
-    if SETTINGS.vision_provider == "hf":
-        try:
-            structured = _qwen_vision_extract(file_bytes, mime_type)
-        except Exception as exc:  # noqa: BLE001
-            vision_error = str(exc)
-            logger.error("Qwen-VL path failed: %s", exc)
-
-    if not structured:
-        structured = {
-            "document_type": "unknown_document",
-            "parties": [],
-            "dates": [],
-            "authorities": [],
-            "sections_mentioned": [],
-            "deadlines": [],
-            "clauses": [],
-            "important_facts": extracted_text[:800] if extracted_text else "",
-        }
+    structured = {
+        "document_type": "unknown_document",
+        "parties": [],
+        "dates": [],
+        "authorities": [],
+        "sections_mentioned": [],
+        "deadlines": [],
+        "clauses": [],
+        "important_facts": extracted_text[:800] if extracted_text else "",
+    }
 
     retrieval_query = " ".join(
         part

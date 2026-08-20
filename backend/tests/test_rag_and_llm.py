@@ -29,7 +29,11 @@ def test_retrieval_metrics_helpers():
 
 
 def test_llm_fallback_when_provider_unavailable(monkeypatch):
-    monkeypatch.setattr("backend.ai.llm.generate_json_from_any", lambda prompt: None)
+    class Unavailable:
+        def generate_json(self, prompt, **kwargs):
+            return None
+
+    monkeypatch.setattr("backend.ai.llm.get_provider", lambda name=None: Unavailable())
     result = generate_answer("unpaid wages", [{"original_text": "Section 17 wages", "act": "Code on Wages", "section": "17"}])
     assert result["fallback_used"] is True
     assert result["service_error"] is True

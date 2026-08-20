@@ -474,6 +474,8 @@ from functools import lru_cache
 from typing import Any
 from transformers import AutoTokenizer, AutoModel
 
+from backend.config import SETTINGS
+
 logger = logging.getLogger(__name__)
 
 # Strict taxonomy as requested
@@ -507,7 +509,7 @@ DOMAIN_DESCRIPTIONS = {
 }
 
 # The model path
-MODEL_NAME = "law-ai/InLegalBERT"
+MODEL_NAME = SETTINGS.inlegalbert_model
 
 TOPIC_BY_DOMAIN = {
     "labour": "wages_and_employment",
@@ -680,8 +682,17 @@ into the final metadata structure stored alongside each chunk.
 """
 
 from typing import Any
+import re
+
+_YEAR_RE = re.compile(r"\b((?:18|19|20)\d{2})\b")
 
 
+def _extract_year(*parts: Any) -> str | None:
+    for part in parts:
+        match = _YEAR_RE.search(str(part or ""))
+        if match:
+            return match.group(1)
+    return None
 
 
 def build_chunk_metadata(
@@ -707,6 +718,7 @@ def build_chunk_metadata(
         "beneficiary": classification.get("beneficiary", "unknown"),
         "jurisdiction": (extra or {}).get("jurisdiction") or chunk.metadata.get("jurisdiction") or "unknown",
         "act": chunk.source or chunk.document_name,
+        "year": _extract_year(chunk.document_name, chunk.source, chunk.original_text),
         "language": chunk.language,
         "original_text": chunk.original_text,
         # We do NOT replace the original text with AI summaries.
@@ -844,7 +856,6 @@ Uses the Qdrant client directly (not through LangChain wrappers).
 
 import logging
 import re
-import uuid
 from typing import Any
 
 from backend.config import BM25_PATH, SETTINGS
@@ -859,86 +870,10 @@ def _tokenize(text: str) -> list[str]:
 
 
 def index_qdrant(records: list[dict[str, Any]], recreate: bool = False) -> int:
-    """Index records into Qdrant.
+    """Index records into Qdrant via the single Qdrant store module."""
+    from backend.rag.qdrant_store import upsert_records
 
-    Each record must have:
-        - 'embedding': list[float]
-        - 'chunk_id': str
-        - All metadata fields
-
-    Returns the number of points upserted.
-    """
-    try:
-        from qdrant_client import QdrantClient  # type: ignore
-        from qdrant_client.http import models as rest  # type: ignore
-    except ImportError:
-        logger.error("qdrant_client is not installed")
-        return 0
-
-    if not records:
-        logger.warning("No records to index into Qdrant")
-        return 0
-
-    # Determine vector size from first record
-    first_embedding = records[0].get("embedding", [])
-    vector_size = len(first_embedding)
-    if vector_size == 0:
-        logger.error("Records have no embeddings")
-        return 0
-
-    # Connect to Qdrant
-    qdrant_url = SETTINGS.qdrant_url
-    client = QdrantClient(url=qdrant_url, timeout=60)
-    collection = SETTINGS.qdrant_collection
-
-    # Recreate collection if requested
-    if recreate:
-        try:
-            client.delete_collection(collection)
-            logger.info("Deleted existing collection: %s", collection)
-        except Exception:
-            pass
-
-    # Create collection if it doesn't exist
-    if not client.collection_exists(collection):
-        client.create_collection(
-            collection_name=collection,
-            vectors_config=rest.VectorParams(
-                size=vector_size,
-                distance=rest.Distance.COSINE,
-            ),
-        )
-        logger.info("Created Qdrant collection: %s (dim=%d)", collection, vector_size)
-
-    # Build points
-    points = []
-    for idx, record in enumerate(records):
-        embedding = record.get("embedding", [])
-        if not embedding:
-            continue
-
-        # Payload is everything except the embedding vector
-        payload = {k: v for k, v in record.items() if k != "embedding"}
-
-        point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(record.get("chunk_id") or idx)))
-        points.append(
-            rest.PointStruct(
-                id=point_id,
-                vector=embedding,
-                payload=payload,
-            )
-        )
-
-    # Upsert in batches
-    batch_size = 100
-    total = 0
-    for i in range(0, len(points), batch_size):
-        batch = points[i : i + batch_size]
-        client.upsert(collection_name=collection, points=batch)
-        total += len(batch)
-        logger.info("Indexed %d / %d points", total, len(points))
-
-    return total
+    return upsert_records(records, recreate=recreate)
 
 
 def index_bm25(records: list[dict[str, Any]]) -> int:
@@ -985,3 +920,65 @@ def index_bm25(records: list[dict[str, Any]]) -> int:
     )
     logger.info("Built BM25 index with %d documents, saved to %s", len(corpus), BM25_PATH)
     return len(corpus)
+
+
+def ingest_paths(paths: list[Path], rebuild: bool = False) -> list[dict[str, Any]]:
+    """Run extraction → clean → chunk → InLegalBERT → MiniLM → Qdrant + BM25."""
+    documents: list[RawDocument] = []
+    for path in paths:
+        resolved = Path(path)
+        if resolved.is_dir():
+            documents.extend(load_directory(resolved))
+        elif resolved.is_file():
+            loaded = load_file(resolved)
+            if loaded is not None:
+                documents.append(loaded)
+    if not documents:
+        logger.warning("No documents found for ingestion.")
+        return []
+
+    all_chunks: list[LegalChunk] = []
+    for doc in documents:
+        cleaned_pages = clean_pages(doc.pages)
+        if not cleaned_pages:
+            continue
+        all_chunks.extend(
+            chunk_document(
+                document_id=doc.document_id,
+                document_name=doc.document_name,
+                source=doc.source,
+                source_url=doc.source_url,
+                pages=cleaned_pages,
+                language="en",
+            )
+        )
+    if not all_chunks:
+        logger.warning("No chunks generated.")
+        return []
+
+    classifications = classify_batch([chunk.original_text for chunk in all_chunks])
+    records = enrich_chunks(all_chunks, classifications)
+    deduped: dict[str, dict[str, Any]] = {}
+    for record in records:
+        chunk_id = str(record.get("chunk_id") or "")
+        if chunk_id:
+            deduped[chunk_id] = record
+    final_records = list(deduped.values())
+    embed_inputs = [
+        " ".join(
+            part
+            for part in [item.get("section", ""), item.get("topic", ""), item.get("original_text", "")]
+            if part
+        )
+        for item in final_records
+    ]
+    embeddings = embed_texts(embed_inputs)
+    for record, vector in zip(final_records, embeddings):
+        record["embedding"] = vector
+    index_qdrant(final_records, recreate=rebuild)
+    index_bm25(final_records)
+    return final_records
+
+
+def ingest_source_dir(source_dir: Path, rebuild: bool = False) -> list[dict[str, Any]]:
+    return ingest_paths([Path(source_dir)], rebuild=rebuild)

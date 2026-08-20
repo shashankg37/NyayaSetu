@@ -12,56 +12,41 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _load_cross_encoder():
-    """Load the CrossEncoder model (cached singleton)."""
+    """Load the configured CrossEncoder model (cached singleton)."""
     try:
         from sentence_transformers import CrossEncoder  # type: ignore
 
-        candidates = [SETTINGS.cross_encoder_model, "cross-encoder/ms-marco-MiniLM-L-6-v2"]
-        last_error: Exception | None = None
-        for model_name in candidates:
-            try:
-                model = CrossEncoder(model_name)
-                logger.info("Loaded cross-encoder: %s", model_name)
-                return model
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-                logger.warning("Could not load CrossEncoder %s: %s", model_name, exc)
-        logger.warning("Could not load any CrossEncoder: %s", last_error)
-        return None
+        model_name = SETTINGS.cross_encoder_model
+        model = CrossEncoder(model_name)
+        logger.info("Loaded cross-encoder: %s", model_name)
+        return model
     except Exception as e:
-        logger.warning("Could not load CrossEncoder: %s", e)
+        logger.warning("Could not load CrossEncoder %s: %s", SETTINGS.cross_encoder_model, e)
         return None
 
 
 def rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> list[dict[str, Any]]:
-    """Rerank candidates using a CrossEncoder.
-
-    Args:
-        query: The user's query.
-        candidates: The list of candidate chunks.
-        top_k: Number of top reranked results to return.
-
-    Returns:
-        Reranked list of chunks with updated scores.
-    """
+    """Rerank RRF candidates using the configured CrossEncoder."""
     if not candidates:
         return []
 
     model = _load_cross_encoder()
     if model is None:
-        # Fallback: just return the top_k as-is
-        return candidates[:top_k]
+        ranked = [dict(item) for item in candidates[:top_k]]
+        for item in ranked:
+            item.setdefault("confidence", float(item.get("fusion_score") or item.get("score") or 0.0))
+            item.setdefault("rerank_score", item["confidence"])
+        return ranked
 
-    # Build pairs of (query, candidate_text)
     pairs = []
-    for c in candidates:
+    for candidate in candidates:
         text = " ".join(
             part
             for part in [
-                c.get("act", ""),
-                c.get("section", ""),
-                c.get("original_text", ""),
-                c.get("simplified_text", ""),
+                candidate.get("act", ""),
+                candidate.get("section", ""),
+                candidate.get("original_text", ""),
+                candidate.get("simplified_text", ""),
             ]
             if part
         )
@@ -69,20 +54,15 @@ def rerank(query: str, candidates: list[dict[str, Any]], top_k: int = 5) -> list
 
     try:
         scores = model.predict(pairs)
-
-        # Apply sigmoid to normalize to 0-1 range
         import math
 
-        normalized_scores = [1.0 / (1.0 + math.exp(-s)) for s in scores]
-
-        # Attach scores and sort
-        ranked = [dict(c) for c in candidates]
+        normalized_scores = [1.0 / (1.0 + math.exp(-float(score))) for score in scores]
+        ranked = [dict(candidate) for candidate in candidates]
         for item, score in zip(ranked, normalized_scores):
             item["confidence"] = float(score)
             item["rerank_score"] = float(score)
-        ranked.sort(key=lambda x: x.get("confidence", 0.0), reverse=True)
+        ranked.sort(key=lambda item: (-float(item.get("confidence", 0.0)), str(item.get("chunk_id", ""))))
         return ranked[:top_k]
-
     except Exception as e:
         logger.error("Reranking failed: %s", e)
         return candidates[:top_k]

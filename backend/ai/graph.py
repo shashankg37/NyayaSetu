@@ -8,10 +8,8 @@ from langgraph.graph import END, StateGraph  # type: ignore
 
 from backend.ai.drafting import DISCLAIMER, export_draft, render_draft, resolve_doc_type
 from backend.ai.language import (
-    SLOT_QUESTIONS,
     classify_intent,
     detect_language,
-    followup_slots,
     infer_legal_domain,
     missing_fields,
     normalize_text,
@@ -204,39 +202,59 @@ def evidence_gate_node(state: PipelineState) -> dict[str, Any]:
         "confidence_score": decision.confidence,
         "evidence_decision": decision.explanation,
         "evidence_sufficient": decision.sufficient,
-        "evidence_status": "sufficient" if decision.sufficient else "insufficient",
+        "evidence_status": decision.status,
+        "evidence_verdict": decision.verdict,
+    }
+
+
+def evidence_router(state: PipelineState) -> str:
+    status = state.get("evidence_status") or ""
+    if status == "no_evidence" or not (state.get("chunks") or []):
+        return "refuse"
+    if status == "insufficient" or not state.get("evidence_sufficient", False):
+        return "clarify"
+    return "generate"
+
+
+def clarify_node(state: PipelineState) -> dict[str, Any]:
+    return {
+        "answer": {
+            "your_right": "The available official material only partly supports this question. I cannot give a complete legal answer from this evidence.",
+            "what_law_says": state.get("evidence_decision") or "Retrieved evidence is incomplete or below the confidence threshold.",
+            "what_this_means": "Please add facts such as the Act, location, dates, or document type, or ask a more specific question.",
+            "what_you_can_do": [
+                "Rephrase with more facts such as location, document type, or dates.",
+                "Contact DLSA / NALSA for legal aid.",
+            ],
+            "citations": [],
+            "source": None,
+            "fallback_used": True,
+            "disclaimer": "This is legal awareness information, not legal advice.",
+        },
+        "next_action": "clarify_or_legal_aid",
+    }
+
+
+def refuse_node(state: PipelineState) -> dict[str, Any]:
+    return {
+        "answer": {
+            "your_right": "No relevant official legal evidence was found for this question. I will not invent a legal answer.",
+            "what_law_says": state.get("evidence_decision") or "No grounded official source was retrieved.",
+            "what_this_means": "The system is not making a legal claim because there is no matching knowledge-base evidence.",
+            "what_you_can_do": [
+                "Ask a question covered by an ingested official Act, Code, or legal-aid note.",
+                "Contact DLSA / NALSA for legal aid.",
+            ],
+            "citations": [],
+            "source": None,
+            "fallback_used": True,
+            "disclaimer": "This is legal awareness information, not legal advice.",
+        },
+        "next_action": "no_speculation",
     }
 
 
 def generator_node(state: PipelineState) -> dict[str, Any]:
-    slots = followup_slots(state.get("legal_domain") or "unknown", state.get("intent") or "", state.get("collected_information") or {})
-    if slots:
-        slot = slots[0]
-        return {
-            "pending_slot": slot,
-            "missing_information": slots,
-            "answer": {
-                "your_right": SLOT_QUESTIONS.get(slot, f"Please provide {slot.replace('_', ' ')}."),
-                "fallback_used": False,
-                "next_action": f"collect_{slot}",
-            },
-            "next_action": f"collect_{slot}",
-        }
-    if not state.get("evidence_sufficient", False):
-        return {
-            "answer": {
-                "your_right": "I could not find sufficient authoritative evidence in the official knowledge base to answer this legal question.",
-                "what_law_says": state.get("evidence_decision") or "No grounded official source was retrieved.",
-                "what_you_can_do": [
-                    "Rephrase with more facts such as location, document type, or dates.",
-                    "Contact DLSA / NALSA for legal aid.",
-                ],
-                "citations": [],
-                "source": None,
-                "fallback_used": True,
-            },
-            "next_action": "clarify_or_legal_aid",
-        }
     answer = generate_answer(
         state.get("current_issue") or state.get("normalized_text", ""),
         state.get("chunks") or [],
@@ -385,6 +403,7 @@ def output_formatter(state: PipelineState) -> dict[str, Any]:
         "reranked_chunks": state.get("reranked_chunks", []),
         "confidence_score": state.get("confidence_score", 0.0),
         "evidence_status": state.get("evidence_status", "unknown"),
+        "evidence_verdict": state.get("evidence_verdict", ""),
         "safety_status": state.get("safety_status", "ok"),
         "next_action": answer.get("next_action") or state.get("next_action"),
         "document": state.get("document"),
@@ -403,6 +422,8 @@ def build_graph():
     graph.add_node("vision", vision_node)
     graph.add_node("evidence_gate", evidence_gate_node)
     graph.add_node("generator", generator_node)
+    graph.add_node("clarify", clarify_node)
+    graph.add_node("refuse", refuse_node)
     graph.add_node("drafting", drafting_node)
     graph.add_node("research", research_node)
     graph.add_node("lawyers", lawyer_node)
@@ -432,8 +453,18 @@ def build_graph():
     )
     graph.add_edge("retriever", "evidence_gate")
     graph.add_edge("vision", "evidence_gate")
-    graph.add_edge("evidence_gate", "generator")
+    graph.add_conditional_edges(
+        "evidence_gate",
+        evidence_router,
+        {
+            "generate": "generator",
+            "clarify": "clarify",
+            "refuse": "refuse",
+        },
+    )
     graph.add_edge("generator", "output_formatter")
+    graph.add_edge("clarify", "output_formatter")
+    graph.add_edge("refuse", "output_formatter")
     graph.add_edge("drafting", "output_formatter")
     graph.add_edge("research", "output_formatter")
     graph.add_edge("lawyers", "output_formatter")

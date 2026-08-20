@@ -4,7 +4,8 @@ from backend.rag.evidence_gate import evaluate_evidence
 def test_evidence_gate_rejects_empty_results():
     decision = evaluate_evidence("unpaid wages", [])
     assert decision.sufficient is False
-    assert decision.confidence == 0.0
+    assert decision.status == "no_evidence"
+    assert decision.verdict == "NO_EVIDENCE"
 
 
 def test_evidence_gate_accepts_scored_official_chunk(monkeypatch):
@@ -25,4 +26,6 @@ def test_evidence_gate_accepts_scored_official_chunk(monkeypatch):
     ]
     decision = evaluate_evidence("unpaid wages", chunks)
     assert decision.sufficient is True
+    assert decision.status == "sufficient"
+    assert decision.verdict in {"HIGH", "SUFFICIENT"}
     assert decision.confidence == 0.82
