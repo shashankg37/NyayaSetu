@@ -39,7 +39,6 @@ export default function DashboardPage() {
             </nav>
 
             <div className="page-wrap" style={{ padding: '4rem 2rem', maxWidth: '1200px', margin: '0 auto' }}>
-                <div className="eyebrow" style={{ color: 'var(--accent-gold)', marginBottom: '1rem', fontWeight: 'bold' }}>Your Hub</div>
                 <h1 style={{ marginBottom: '2rem' }}>
                     {loading ? 'Loading...' : `Welcome, ${profile?.full_name || profile?.email?.split('@')[0] || 'User'}`}
                 </h1>
