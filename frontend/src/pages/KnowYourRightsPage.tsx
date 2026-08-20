@@ -39,7 +39,7 @@ export default function KnowYourRightsPage() {
             {/*  NAV  */}
             <nav className="nav">
               <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '36px', width: 'auto' }} />
+                <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '46px', width: 'auto' }} />
               </div>
               <div className="nav-center">
                 <Link to="/">Home</Link>
