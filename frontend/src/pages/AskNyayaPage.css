@@ -124,6 +124,26 @@
     border-color: var(--accent)
   }
 
+  .btn-login {
+    font-family: var(--sans);
+    padding: 8px 22px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s
+  }
+
+  .btn-login:hover {
+    border-color: var(--accent);
+    color: var(--accent)
+  }
+
   .btn-primary {
     font-family: var(--sans);
     font-size: 12px;
