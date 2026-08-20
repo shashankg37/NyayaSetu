@@ -14,6 +14,8 @@ export default {
         "chocolate-brown": "#3D291D",
         "accent-brown": "#4A3525",
         taupe: "#786F68",
+        gold: "#C9A24B",
+        "gold-dark": "#9C7A3C",
       },
       fontFamily: {
         serif: ["Playfair Display", "serif"],

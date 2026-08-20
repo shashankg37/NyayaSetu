@@ -25,7 +25,7 @@ qdrant-client
 sentence-transformers
 rank-bm25
 google-generativeai
-fasttext-wheel
+
 pypdf
 pillow
 requests

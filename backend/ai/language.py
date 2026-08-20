@@ -48,38 +48,11 @@ def tokenize(text: str) -> list[str]:
     return [token.lower() for token in TOKEN_RE.findall(text or "")]
 
 
-@lru_cache(maxsize=1)
-def _load_fasttext_model():
-    try:
-        import fasttext  # type: ignore
-    except Exception as exc:
-        logger.warning("fasttext is unavailable: %s", exc)
-        return None
-    for path in SETTINGS.fasttext_model_paths():
-        if not path.exists():
-            continue
-        try:
-            model = fasttext.load_model(str(path))
-            logger.info("Loaded FastText model from %s", path)
-            return model
-        except Exception as exc:
-            logger.warning("Failed to load FastText model %s: %s", path, exc)
-    return None
+
 
 
 def detect_language(text: str) -> str:
-    if not text or not text.strip():
-        return "en"
-    model = _load_fasttext_model()
-    if not model:
-        return "en"
-    try:
-        predictions = model.predict(text.replace("\n", " ").strip(), k=1)
-        label = predictions[0][0]
-        return str(label).replace("__label__", "")
-    except Exception as exc:
-        logger.warning("Language detection failed: %s", exc)
-        return "en"
+    return "en"
 
 
 def detect_draft_type(text: str) -> str | None:

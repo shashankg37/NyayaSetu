@@ -17,6 +17,8 @@ a {
   --accent-brown: #4a3525;
   --taupe: #786f68;
   --soft-gold: #d8c9ba;
+  --gold: #C9A24B;
+  --gold-dark: #9C7A3C;
   --shadow-soft: 0 18px 45px rgba(26, 22, 21, 0.08);
 }
 
@@ -112,7 +114,7 @@ button {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: var(--chocolate);
+  background: #3d2106;
   color: var(--cream);
   font-family: 'Playfair Display', serif;
   font-weight: 700;
@@ -154,18 +156,20 @@ button {
 }
 
 .primary-button {
-  background: var(--chocolate);
-  color: var(--cream);
-  border: 1px solid var(--chocolate);
+  background: #3d2106;
+  color: #fff;
+  border: 1px solid var(--gold);
+  border-radius: 0;
   padding: 0.92rem 1.7rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  box-shadow: 0 16px 35px rgba(61, 41, 29, 0.18);
+  box-shadow: 0 16px 35px rgba(201, 162, 75, 0.25);
 }
 
 .primary-button:hover {
   transform: translateY(-2px);
-  background: var(--accent-brown);
+  background: var(--gold-dark);
+  border-color: var(--gold-dark);
 }
 
 .secondary-button {
@@ -361,8 +365,15 @@ button {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-14px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-14px);
+  }
 }
 
 .stats-band {
@@ -548,6 +559,41 @@ button {
 .benefit-row p {
   margin: 0;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.trust-line-section {
+  padding: 48px 0;
+  border-top: 1px solid rgba(26, 22, 21, 0.06);
+}
+
+.trust-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--taupe);
+}
+
+.trust-dot {
+  font-size: 1.2rem;
+  color: var(--gold);
+}
+
+.footer-simple {
+  padding: 40px 0 32px;
+  border-top: 1px solid rgba(26, 22, 21, 0.08);
+  background: var(--cream);
+}
+
+.footer-simple-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .footer-cta {
@@ -783,7 +829,7 @@ button {
 .chat-feed {
   display: grid;
   gap: 12px;
-  max-height: 420px;
+  max-height: calc(100vh - 260px);
   overflow: auto;
   padding-right: 8px;
 }
@@ -1152,6 +1198,7 @@ button {
 }
 
 @media (max-width: 980px) {
+
   .hero-grid,
   .spotlight-grid,
   .dark-grid,

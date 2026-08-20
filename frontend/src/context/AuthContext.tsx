@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, type AuthUser } from '../lib/api';
 
 type AuthContextType = {
@@ -89,14 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const value = useMemo<AuthContextType>(
-    () => ({ token, user, loading, login, signup, updateProfile, logout, setSession }),
-    [token, user, loading],
-  );
+  const value: AuthContextType = { token, user, loading, login, signup, updateProfile, logout, setSession };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

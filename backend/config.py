@@ -121,7 +121,6 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     working_language: str = "en"
 
-    fasttext_langid_model: str = "lid.176.ftz"
 
     # ------------------------------------------------------------------
     # Sarvam AI
@@ -160,23 +159,7 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
-    @property
-    def fasttext_model_paths(self) -> list[Path]:
-        configured = Path(self.fasttext_langid_model)
 
-        return [
-            configured,
-            BACKEND_ROOT / configured,
-            BACKEND_ROOT
-            / "data"
-            / "language_models"
-            / configured.name,
-            BACKEND_ROOT
-            / "data"
-            / "language_models"
-            / "lid.176.ftz",
-            Path("data/language_models/lid.176.ftz"),
-        ]
 
 
 @lru_cache
