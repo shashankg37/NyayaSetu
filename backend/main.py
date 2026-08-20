@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from backend.api import auth, chat, documents, drafting, lawyers, research, users, voice
 from backend.config import get_settings
-from backend.database import Base, engine
+from backend.database import Base, ensure_sqlite_schema, engine
 import backend.models.database  # noqa: F401
 
 settings = get_settings()
@@ -53,6 +53,7 @@ async def unexpected_error(request: Request, exc: Exception):
 
 @app.on_event("startup")
 def startup() -> None:
+    ensure_sqlite_schema()
     Base.metadata.create_all(bind=engine)
 
 

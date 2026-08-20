@@ -29,11 +29,24 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class UpdateProfileRequest(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    city: str | None = None
+    issue_type: str | None = None
+    preferred_language: str | None = None
+    consent_given: bool | None = None
+
+
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
     role: Role | str
     preferred_language: str
     consent_given: bool
+    full_name: str | None = None
+    phone: str | None = None
+    city: str | None = None
+    issue_type: str | None = None
 
     model_config = {"from_attributes": True}

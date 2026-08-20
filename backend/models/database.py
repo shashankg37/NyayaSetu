@@ -38,6 +38,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default=Role.citizen.value, nullable=False)
     preferred_language: Mapped[str] = mapped_column(String(32), default="en", nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    phone: Mapped[str | None] = mapped_column(String(50), default=None)
+    city: Mapped[str | None] = mapped_column(String(120), default=None)
+    issue_type: Mapped[str | None] = mapped_column(String(80), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     sessions = relationship("Session", back_populates="user")

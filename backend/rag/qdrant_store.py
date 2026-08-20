@@ -107,27 +107,22 @@ def search_qdrant(
 
     try:
         client = get_qdrant_client(timeout=10)
-    except Exception as exc:
-        logger.error("Qdrant connection failed: %s", exc)
-        return []
+        collection = SETTINGS.qdrant_collection
+        if not client.collection_exists(collection):
+            logger.warning("Qdrant collection '%s' does not exist", collection)
+            return []
 
-    collection = SETTINGS.qdrant_collection
-    if not client.collection_exists(collection):
-        logger.warning("Qdrant collection '%s' does not exist", collection)
-        return []
+        qdrant_filter = None
+        if filters:
+            conditions = []
+            for key, value in filters.items():
+                if isinstance(value, list):
+                    conditions.append(rest.FieldCondition(key=key, match=rest.MatchAny(any=value)))
+                else:
+                    conditions.append(rest.FieldCondition(key=key, match=rest.MatchValue(value=value)))
+            if conditions:
+                qdrant_filter = rest.Filter(must=conditions)
 
-    qdrant_filter = None
-    if filters:
-        conditions = []
-        for key, value in filters.items():
-            if isinstance(value, list):
-                conditions.append(rest.FieldCondition(key=key, match=rest.MatchAny(any=value)))
-            else:
-                conditions.append(rest.FieldCondition(key=key, match=rest.MatchValue(value=value)))
-        if conditions:
-            qdrant_filter = rest.Filter(must=conditions)
-
-    try:
         results = client.search(
             collection_name=collection,
             query_vector=query_vector,
@@ -148,5 +143,5 @@ def search_qdrant(
             )
         return hits
     except Exception as e:
-        logger.error("Qdrant search failed: %s", e)
+        logger.warning("Qdrant is unavailable for this request; returning empty dense results (%s)", e)
         return []
