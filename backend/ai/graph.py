@@ -199,6 +199,7 @@ def vision_node(state: PipelineState) -> dict[str, Any]:
 def evidence_gate_node(state: PipelineState) -> dict[str, Any]:
     decision = evaluate_evidence(state.get("normalized_text", ""), state.get("chunks") or [])
     return {
+        "chunks": state.get("chunks") or [], 
         "confidence_score": decision.confidence,
         "evidence_decision": decision.explanation,
         "evidence_sufficient": decision.sufficient,

@@ -123,15 +123,17 @@ def search_qdrant(
             if conditions:
                 qdrant_filter = rest.Filter(must=conditions)
 
-        results = client.search(
+        response = client.query_points(
             collection_name=collection,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=qdrant_filter,
             limit=top_k,
             with_payload=True,
         )
+
         hits: list[dict[str, Any]] = []
-        for res in results:
+
+        for res in response.points:
             if not res.payload:
                 continue
             hits.append(

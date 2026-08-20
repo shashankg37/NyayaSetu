@@ -18,6 +18,17 @@ ALLOWED_DOCUMENT_MIME = {
     "image/webp",
     "application/octet-stream",
 }
+ALLOWED_AUDIO_MIME = {
+    "audio/wav",
+    "audio/wave",
+    "audio/x-wav",
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/ogg",
+    "audio/mp4",
+    "audio/x-m4a",
+    "application/octet-stream",
+}
 MAGIC = {
     ".pdf": b"%PDF",
     ".png": b"\x89PNG",
@@ -46,6 +57,8 @@ def read_and_validate_upload(file: UploadFile, kind: str = "document") -> tuple[
         raise HTTPException(400, f"Unsupported file type: {suffix}")
     content_type = (file.content_type or "").lower()
     if kind == "document" and content_type and content_type not in ALLOWED_DOCUMENT_MIME:
+        raise HTTPException(400, f"Unsupported MIME type: {content_type}")
+    if kind == "audio" and content_type and content_type not in ALLOWED_AUDIO_MIME:
         raise HTTPException(400, f"Unsupported MIME type: {content_type}")
     data = file.file.read()
     if not data:

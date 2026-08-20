@@ -15,19 +15,32 @@ from backend.rag.store import load_pickle
 logger = logging.getLogger(__name__)
 
 
-def rank_bm25(query: str, records: list[dict[str, Any]], top_k: int = 10) -> list[dict[str, Any]]:
-    """Rank an in-memory list of chunks with BM25. Does not use Qdrant."""
+def rank_bm25(
+    query: str,
+    records: list[dict[str, Any]],
+    top_k: int = 10,
+) -> list[dict[str, Any]]:
+    """Rank an in-memory list of chunks with BM25.
+
+    Does not use Qdrant.
+
+    Uses BM25 normally. For very small corpora where BM25 produces
+    zero/non-positive scores, falls back to token-overlap ranking.
+    """
     try:
         from rank_bm25 import BM25Okapi  # type: ignore
     except ImportError:
         logger.error("rank_bm25 is not installed")
         return []
+
     if not query.strip() or not records:
         return []
-    corpus = []
+
+    corpus: list[list[str]] = []
+
     for record in records:
         text = " ".join(
-            part
+            str(part)
             for part in [
                 record.get("original_text", ""),
                 record.get("section", ""),
@@ -36,17 +49,63 @@ def rank_bm25(query: str, records: list[dict[str, Any]], top_k: int = 10) -> lis
             ]
             if part
         )
+
         corpus.append(_tokenize(text))
+
+    query_tokens = _tokenize(query)
+
+    if not query_tokens:
+        return []
+
     bm25 = BM25Okapi(corpus)
-    scores = bm25.get_scores(_tokenize(query))
-    indexed = [(idx, float(score)) for idx, score in enumerate(scores) if score > 0]
-    indexed.sort(key=lambda item: (-item[1], str(records[item[0]].get("chunk_id", ""))))
-    results = []
+    scores = bm25.get_scores(query_tokens)
+
+    # Use normal BM25 scores when they provide useful positive values.
+    if any(float(score) > 0 for score in scores):
+        indexed = [
+            (idx, float(score))
+            for idx, score in enumerate(scores)
+        ]
+    else:
+        # Tiny corpora can produce zero BM25 scores even for matching
+        # terms. Use token overlap as a deterministic fallback.
+        query_set = set(query_tokens)
+
+        indexed = []
+
+        for idx, record in enumerate(records):
+            text = " ".join(
+                str(part)
+                for part in [
+                    record.get("original_text", ""),
+                    record.get("section", ""),
+                    record.get("topic", ""),
+                    record.get("act", ""),
+                ]
+                if part
+            )
+
+            document_set = set(_tokenize(text))
+            overlap = len(query_set & document_set)
+
+            indexed.append((idx, float(overlap)))
+
+    # Highest score first; chunk_id gives deterministic tie-breaking.
+    indexed.sort(
+        key=lambda item: (
+            -item[1],
+            str(records[item[0]].get("chunk_id", "")),
+        )
+    )
+
+    results: list[dict[str, Any]] = []
+
     for idx, score in indexed[:top_k]:
         record = dict(records[idx])
         record["score"] = score
         record["retrieval_source"] = "bm25"
         results.append(record)
+
     return results
 
 

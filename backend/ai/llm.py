@@ -4,6 +4,7 @@ Primary path: Hugging Face Inference (Qwen). Gemini remains an optional fallback
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from typing import Any, Protocol
@@ -73,6 +74,7 @@ def citations_from_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 class LLMProvider(Protocol):
     def generate(self, prompt: str, **kwargs: Any) -> str | None: ...
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None: ...
+    def generate_json_with_image(self, prompt: str, image_bytes: bytes, mime_type: str, **kwargs: Any) -> dict[str, Any] | None: ...
 
 
 def _chat_text_from_hf(data: Any) -> str | None:
@@ -99,66 +101,117 @@ class HuggingFaceProvider:
     """Hugging Face Inference provider for Qwen."""
 
     def generate(self, prompt: str, **kwargs: Any) -> str | None:
+        """Generate text through Hugging Face Inference Providers."""
         if not SETTINGS.hf_api_key:
             logger.warning("HF API key missing")
             return None
-        max_tokens = int(kwargs.get("max_new_tokens") or kwargs.get("max_tokens") or 1000)
+
+        max_tokens = int(
+            kwargs.get("max_new_tokens")
+            or kwargs.get("max_tokens")
+            or 1000
+        )
         temperature = float(kwargs.get("temperature", 0.1))
+
         try:
             from huggingface_hub import InferenceClient  # type: ignore
 
-            client = InferenceClient(token=SETTINGS.hf_api_key)
-            logger.info("Hugging Face inference model=%s", SETTINGS.llm_model)
+            client = InferenceClient(
+                provider=getattr(SETTINGS, "hf_provider", "featherless-ai"),
+                api_key=SETTINGS.hf_api_key,
+            )
+
+            logger.info(
+                "Hugging Face provider=%s model=%s",
+                getattr(SETTINGS, "hf_provider", "featherless-ai"),
+                SETTINGS.llm_model,
+            )
+
             completion = client.chat.completions.create(
                 model=SETTINGS.llm_model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
-            content = completion.choices[0].message.content
-            return str(content) if content else None
-        except Exception as hub_error:
-            logger.info("HF chat client failed, trying HTTP inference: %s", hub_error)
 
-        headers = {"Authorization": f"Bearer {SETTINGS.hf_api_key}"}
-        urls = [
-            f"{SETTINGS.hf_api_url.rstrip('/')}/{SETTINGS.llm_model}",
-            f"https://api-inference.huggingface.co/models/{SETTINGS.llm_model}",
-        ]
-        payloads = [
-            {
-                "model": SETTINGS.llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-            {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": max_tokens,
-                    "temperature": temperature,
-                    "return_full_text": False,
-                },
-            },
-        ]
-        for url in urls:
-            for payload in payloads:
-                try:
-                    response = requests.post(url, headers=headers, json=payload, timeout=90)
-                    if response.status_code >= 400:
-                        logger.warning("HF HTTP %s for %s: %s", response.status_code, url, response.text[:300])
-                        continue
-                    text = _chat_text_from_hf(response.json())
-                    if text:
-                        return text
-                except Exception as exc:
-                    logger.error("HuggingFace generation failed: %s", exc)
-        return None
+            content = completion.choices[0].message.content
+
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+
+            if isinstance(content, list):
+                parts = [
+                    str(part.get("text", ""))
+                    for part in content
+                    if isinstance(part, dict)
+                ]
+                text = "".join(parts).strip()
+                return text or None
+
+            return None
+
+        except Exception as exc:
+            logger.error("Hugging Face generation failed: %s", exc)
+            return None
 
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
         json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. Do not include markdown fences."
         text = self.generate(json_prompt, **kwargs)
         return safe_json_loads(text or "")
+
+    def generate_json_with_image(self, prompt: str, image_bytes: bytes, mime_type: str, **kwargs: Any) -> dict[str, Any] | None:
+        if not SETTINGS.hf_api_key:
+            logger.warning("HF API key missing")
+            return None
+        data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+        max_tokens = int(kwargs.get("max_new_tokens") or kwargs.get("max_tokens") or 1000)
+        temperature = float(kwargs.get("temperature", 0.1))
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"{prompt}\n\nRespond ONLY with valid JSON. Do not include markdown fences."},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ]
+        try:
+            from huggingface_hub import InferenceClient  # type: ignore
+
+            client = InferenceClient(token=SETTINGS.hf_api_key)
+            completion = client.chat.completions.create(
+                model=SETTINGS.llm_model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            content = completion.choices[0].message.content
+            return safe_json_loads(str(content or ""))
+        except Exception as hub_error:
+            logger.info("HF multimodal chat client failed, trying HTTP inference: %s", hub_error)
+
+        headers = {"Authorization": f"Bearer {SETTINGS.hf_api_key}"}
+        url = f"{SETTINGS.hf_api_url.rstrip('/')}/{SETTINGS.llm_model}"
+        payload = {
+            "model": SETTINGS.llm_model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=90)
+            if response.status_code >= 400:
+                logger.warning("HF multimodal HTTP %s: %s", response.status_code, response.text[:300])
+                return None
+            return safe_json_loads(_chat_text_from_hf(response.json()) or "")
+        except Exception as exc:
+            logger.error("HuggingFace multimodal generation failed: %s", exc)
+            return None
 
 
 class GeminiProvider:
@@ -207,6 +260,9 @@ class GeminiProvider:
             logger.error("Gemini JSON generation failed: %s", exc)
             return None
 
+    def generate_json_with_image(self, prompt: str, image_bytes: bytes, mime_type: str, **kwargs: Any) -> dict[str, Any] | None:
+        return None
+
 
 class LocalProvider:
     def generate(self, prompt: str, **kwargs: Any) -> str | None:
@@ -214,6 +270,9 @@ class LocalProvider:
         return None
 
     def generate_json(self, prompt: str, **kwargs: Any) -> dict[str, Any] | None:
+        return None
+
+    def generate_json_with_image(self, prompt: str, image_bytes: bytes, mime_type: str, **kwargs: Any) -> dict[str, Any] | None:
         return None
 
 
@@ -235,6 +294,10 @@ def generate_json_from_any(prompt: str) -> dict[str, Any] | None:
 
 def generate_text_from_any(prompt: str) -> str | None:
     return get_provider().generate(prompt)
+
+
+def generate_json_from_image(prompt: str, image_bytes: bytes, mime_type: str) -> dict[str, Any] | None:
+    return HuggingFaceProvider().generate_json_with_image(prompt, image_bytes, mime_type)
 
 
 def _fallback_response(query: str, chunks: list[dict[str, Any]], reason: str, service_error: bool = False) -> dict[str, Any]:

@@ -1,7 +1,7 @@
-"""Bhashini Speech-to-Text integration."""
+"""Sarvam Saaras v3 Speech-to-Text integration."""
 from __future__ import annotations
 
-import base64
+from io import BytesIO
 import logging
 
 import requests
@@ -20,58 +20,38 @@ def transcribe(audio_bytes: bytes, source_language: str | None = None) -> str:
         raise SpeechTranscriptionError("Invalid audio: empty payload.")
     if len(audio_bytes) < 64:
         raise SpeechTranscriptionError("Invalid audio: file is too small to transcribe.")
-    if not SETTINGS.bhashini_api_url or not SETTINGS.bhashini_api_key:
-        raise SpeechTranscriptionError("Bhashini STT is not configured.")
+    if not SETTINGS.sarvam_api_key:
+        raise SpeechTranscriptionError("Sarvam STT is not configured.")
 
-    language = source_language or SETTINGS.bhashini_target_lang or "en"
-    headers = {
-        "Authorization": SETTINGS.bhashini_api_key,
-        "ulcaApiKey": SETTINGS.bhashini_api_key,
-        "userID": SETTINGS.bhashini_user_id,
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "pipelineId": SETTINGS.bhashini_pipeline_id,
-        "pipelineTasks": [
-            {
-                "taskType": "asr",
-                "config": {
-                    "language": {"sourceLanguage": language},
-                    "serviceId": SETTINGS.bhashini_stt_service_id,
-                    "audioFormat": "wav",
-                    "samplingRate": 16000,
-                },
-            }
-        ],
-        "inputData": {"audio": [{"audioContent": base64.b64encode(audio_bytes).decode("ascii")}]},
+    language = source_language or SETTINGS.sarvam_default_language or "unknown"
+    headers = {"api-subscription-key": SETTINGS.sarvam_api_key}
+    files = {"file": ("audio.wav", BytesIO(audio_bytes), "audio/wav")}
+    data = {
+        "model": SETTINGS.sarvam_stt_model,
+        "mode": "transcribe",
+        "language_code": language,
     }
     try:
         response = requests.post(
-            SETTINGS.bhashini_api_url,
+            f"{SETTINGS.sarvam_base_url.rstrip('/')}/speech-to-text",
             headers=headers,
-            json=payload,
-            timeout=SETTINGS.bhashini_timeout_seconds,
+            files=files,
+            data=data,
+            timeout=SETTINGS.sarvam_timeout_seconds,
         )
     except requests.Timeout as exc:
-        raise SpeechTranscriptionError("Bhashini STT timed out.") from exc
+        raise SpeechTranscriptionError("Sarvam STT timed out.") from exc
     except requests.RequestException as exc:
-        raise SpeechTranscriptionError(f"Bhashini STT request failed: {exc}") from exc
+        raise SpeechTranscriptionError(f"Sarvam STT request failed: {exc}") from exc
 
     if response.status_code >= 400:
-        raise SpeechTranscriptionError(f"Bhashini STT API failure ({response.status_code}).")
+        raise SpeechTranscriptionError(f"Sarvam STT API failure ({response.status_code}).")
     try:
         data = response.json()
     except ValueError as exc:
-        raise SpeechTranscriptionError("Bhashini STT returned a malformed response.") from exc
+        raise SpeechTranscriptionError("Sarvam STT returned a malformed response.") from exc
 
-    pipeline = data.get("pipelineResponse") or data.get("output") or []
-    if isinstance(pipeline, list) and pipeline:
-        output = pipeline[0].get("output") or pipeline[0].get("nBestOutputs") or []
-        if output:
-            text = output[0].get("source") or output[0].get("target") or output[0].get("text")
-            if text:
-                return str(text).strip()
     text = data.get("text") or data.get("transcript")
     if text:
         return str(text).strip()
-    raise SpeechTranscriptionError("Bhashini STT did not return a transcript.")
+    raise SpeechTranscriptionError("Sarvam STT did not return a transcript.")
