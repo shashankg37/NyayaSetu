@@ -1,122 +1,195 @@
-import { useState, type FormEvent } from 'react';
+import './AuthPage.css';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-type AuthPageProps = {
-  mode: 'login' | 'signup';
-};
+export default function AuthPage() {
+    const [mode, setMode] = useState<'login' | 'signup'>('login');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [language, setLanguage] = useState('');
+    const [consent, setConsent] = useState(false);
+    const [error, setError] = useState('');
+    
+    // Use the encapsulated methods from context, it already handles loading state if needed,
+    // but we can manage local loading state too.
+    const [loading, setLoading] = useState(false);
 
-export default function AuthPage({ mode }: AuthPageProps) {
-  const navigate = useNavigate();
-  const { login, signup, loading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState('en');
-  const [error, setError] = useState('');
+    const { login, signup } = useAuth();
+    const navigate = useNavigate();
 
-  const isSignup = mode === 'signup';
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await login(email, password);
+            navigate('/dashboard');
+        } catch (err: any) {
+            setError(err.message || 'Login failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const validate = () => {
-    if (!email.trim() || !email.includes('@')) {
-      return 'Please enter a valid email address.';
-    }
+    const handleSignup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await signup(email, password, language || 'en');
+            navigate('/onboarding');
+        } catch (err: any) {
+            setError(err.message || 'Signup failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters long.';
-    }
-
-    if (isSignup && password !== confirmPassword) {
-      return 'Passwords do not match.';
-    }
-
-    return '';
-  };
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    try {
-      if (isSignup) {
-        await signup(email, password, preferredLanguage);
-        navigate('/onboarding');
-      } else {
-        await login(email, password);
-        navigate('/dashboard');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
-    }
-  };
-
-  return (
-    <div className="auth-shell">
-      <div className="auth-panel">
-        <Link to="/" className="brand-mark auth-brand">
-          <span className="brand-icon">NS</span>
-          <span className="brand-word">Nyaya Setu</span>
-        </Link>
-
-        <div className="auth-copy">
-          <span className="eyebrow">SECURE ACCESS</span>
-          <h1>{isSignup ? 'Create your account' : 'Welcome back'}</h1>
-          <p>
-            {isSignup
-              ? 'Start your legal-awareness journey with secure account access.'
-              : 'Sign in to resume your legal guidance dashboard.'}
-          </p>
-        </div>
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            <span>Email address</span>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-
-          <label>
-            <span>Password</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-          </label>
-
-          {isSignup && (
+    return (
+        <div className="theme-auth">
             <>
-              <label>
-                <span>Confirm password</span>
-                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} />
-              </label>
+            {/* ══════════ NAV ══════════ */}
+            <nav>
+                <div className="nav-left">
+                    <div className="ns-badge">NS</div>
+                    <span className="wordmark">Nyaya Setu</span>
+                </div>
+                <ul className="nav-links">
+                    <li><Link to="/">Home</Link></li>
+                    <li><Link to="/ask-nyaya">Ask Nyaya</Link></li>
+                    <li><Link to="/know-your-rights">Know Your Rights</Link></li>
+                </ul>
+                <div className="nav-right">
+                    <button className="btn-outline-pill" onClick={() => setMode('login')}>Login</button>
+                    <button className="btn-primary" onClick={() => setMode('signup')}>Get Started</button>
+                </div>
+            </nav>
 
-              <label>
-                <span>Preferred language</span>
-                <select value={preferredLanguage} onChange={(e) => setPreferredLanguage(e.target.value)}>
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                  <option value="kn">Kannada</option>
-                  <option value="ml">Malayalam</option>
-                  <option value="ta">Tamil</option>
-                </select>
-              </label>
-            </>
-          )}
+            {/* ══════════ PAGE ══════════ */}
+            <div className="page-wrap">
+                <div className="auth-card">
+                    <div className="eyebrow">Secure Access</div>
 
-          {error && <div className="error-banner">{error}</div>}
+                    {/* Tabs */}
+                    <div className="tabs">
+                        <button 
+                            className={`tab-btn ${mode === 'login' ? 'active' : ''}`} 
+                            onClick={() => setMode('login')}
+                        >
+                            Login
+                        </button>
+                        <button 
+                            className={`tab-btn ${mode === 'signup' ? 'active' : ''}`} 
+                            onClick={() => setMode('signup')}
+                        >
+                            Signup
+                        </button>
+                    </div>
 
-          <button type="submit" className="primary-button full-width" disabled={loading}>
-            {loading ? 'Please wait...' : isSignup ? 'Create Account' : 'Login'}
-          </button>
-        </form>
+                    {error && <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
 
-        <div className="auth-switch">
-          {isSignup ? 'Already have an account?' : 'Need an account?'}{' '}
-          <Link to={isSignup ? '/login' : '/signup'}>{isSignup ? 'Sign in' : 'Create one'}</Link>
+                    {/* LOGIN */}
+                    {mode === 'login' && (
+                        <div className="form-panel visible">
+                            <form onSubmit={handleLogin}>
+                                <div className="field">
+                                    <label htmlFor="login-email">Email</label>
+                                    <input 
+                                        type="email" 
+                                        id="login-email" 
+                                        placeholder="you@example.com" 
+                                        autoComplete="email" 
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="field">
+                                    <label htmlFor="login-pass">Password</label>
+                                    <input 
+                                        type="password" 
+                                        id="login-pass" 
+                                        placeholder="Enter password" 
+                                        autoComplete="current-password" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" className="btn-submit" disabled={loading}>
+                                    {loading ? 'Logging in...' : 'Login'}
+                                </button>
+                            </form>
+                            <p className="switch-text">Don't have an account? <span style={{cursor: 'pointer', textDecoration: 'underline'}} onClick={() => setMode('signup')}>Sign up</span></p>
+                        </div>
+                    )}
+
+                    {/* SIGNUP */}
+                    {mode === 'signup' && (
+                        <div className="form-panel visible">
+                            <form onSubmit={handleSignup}>
+                                <div className="field">
+                                    <label htmlFor="signup-email">Email</label>
+                                    <input 
+                                        type="email" 
+                                        id="signup-email" 
+                                        placeholder="you@example.com" 
+                                        autoComplete="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="field">
+                                    <label htmlFor="signup-pass">Password</label>
+                                    <input 
+                                        type="password" 
+                                        id="signup-pass" 
+                                        placeholder="Enter password" 
+                                        autoComplete="new-password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="field">
+                                    <label htmlFor="signup-lang">Preferred Language</label>
+                                    <select id="signup-lang" value={language} onChange={(e) => setLanguage(e.target.value)} required>
+                                        <option value="" disabled>Select language</option>
+                                        <option value="en">English</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="ta">Tamil</option>
+                                        <option value="te">Telugu</option>
+                                        <option value="bn">Bengali</option>
+                                        <option value="mr">Marathi</option>
+                                        <option value="kn">Kannada</option>
+                                        <option value="ml">Malayalam</option>
+                                        <option value="gu">Gujarati</option>
+                                        <option value="pa">Punjabi</option>
+                                        <option value="or">Odia</option>
+                                        <option value="as">Assamese</option>
+                                    </select>
+                                </div>
+                                <div className="consent-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="consent" 
+                                        checked={consent}
+                                        onChange={(e) => setConsent(e.target.checked)}
+                                    />
+                                    <label htmlFor="consent" style={{ fontSize: '0.85rem' }}>I agree to Nyaya Setu's data use and privacy terms</label>
+                                </div>
+                                <button type="submit" className="btn-submit" disabled={!consent || loading}>
+                                    {loading ? 'Creating Account...' : 'Create Account'}
+                                </button>
+                            </form>
+                            <p className="switch-text">Already have an account? <span style={{cursor: 'pointer', textDecoration: 'underline'}} onClick={() => setMode('login')}>Log in</span></p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

@@ -1,171 +1,115 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import './OnboardingPage.css';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-const stepLabels = ['Profile', 'Details', 'Consent'];
-
 export default function OnboardingPage() {
-  const navigate = useNavigate();
-  const { user, token, updateProfile } = useAuth();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState({
-    fullName: user?.full_name ?? '',
-    phone: user?.phone ?? '',
-    city: user?.city ?? '',
-    issueType: user?.issue_type ?? 'general',
-    consentGiven: user?.consent_given ?? false,
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+    const { token } = useAuth();
+    const navigate = useNavigate();
+    
+    const [fullName, setFullName] = useState('');
+    const [city, setCity] = useState('');
+    const [issueType, setIssueType] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-  const updateField = (key: keyof typeof form, value: string | boolean) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: '' }));
-  };
+    const handleComplete = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token) return;
+        setLoading(true);
+        setError('');
+        
+        try {
+            await api.updateProfile(token, {
+                full_name: fullName,
+                city: city,
+                issue_type: issueType
+            });
+            navigate('/dashboard');
+        } catch (err: any) {
+            setError(err.message || 'Failed to update profile');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const validateStep = () => {
-    const nextErrors: Record<string, string> = {};
+    return (
+        <div className="theme-onboarding">
+            <div className="page">
+            <nav className="nav" style={{ borderBottom: 'none' }}>
+                <div className="nav-left">
+                    <div className="ns-badge">NS</div>
+                    <span className="ns-wordmark">Nyaya Setu</span>
+                </div>
+            </nav>
 
-    if (step === 0 && !form.fullName.trim()) nextErrors.fullName = 'Full name is required.';
-    if (step === 1 && !form.phone.trim()) nextErrors.phone = 'Phone number is required.';
-    if (step === 1 && !form.city.trim()) nextErrors.city = 'City is required.';
-    if (step === 2 && !form.consentGiven) nextErrors.consentGiven = 'Please accept the consent statement to continue.';
+            <div className="page-wrap" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+                <div className="auth-card" style={{ width: '100%', maxWidth: '500px' }}>
+                    <div className="eyebrow" style={{ color: 'var(--accent-gold)' }}>Step 2 of 2</div>
+                    <h2 style={{ marginBottom: '0.5rem' }}>Complete your profile</h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>This helps us provide more accurate legal information tailored to your jurisdiction.</p>
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
+                    {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
 
-  const nextStep = () => {
-    if (!validateStep()) return;
-    setStep((current) => Math.min(current + 1, stepLabels.length - 1));
-  };
+                    <form onSubmit={handleComplete}>
+                        <div className="field" style={{ marginBottom: '1.5rem' }}>
+                            <label htmlFor="fullName" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Full Name</label>
+                            <input 
+                                type="text" 
+                                id="fullName" 
+                                style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border-light)', borderRadius: '6px' }}
+                                placeholder="E.g. Rajesh Kumar" 
+                                value={fullName}
+                                onChange={e => setFullName(e.target.value)}
+                            />
+                        </div>
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!validateStep()) return;
-    if (!token) {
-      navigate('/login');
-      return;
-    }
+                        <div className="field" style={{ marginBottom: '1.5rem' }}>
+                            <label htmlFor="city" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>City / District</label>
+                            <input 
+                                type="text" 
+                                id="city" 
+                                style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border-light)', borderRadius: '6px' }}
+                                placeholder="E.g. Mumbai, Maharashtra" 
+                                value={city}
+                                onChange={e => setCity(e.target.value)}
+                            />
+                        </div>
 
-    setSubmitting(true);
-    try {
-      await updateProfile({
-        full_name: form.fullName,
-        phone: form.phone,
-        city: form.city,
-        issue_type: form.issueType,
-        preferred_language: user?.preferred_language ?? 'en',
-        consent_given: form.consentGiven,
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setErrors({ consentGiven: err instanceof Error ? err.message : 'Unable to save onboarding details.' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+                        <div className="field" style={{ marginBottom: '2rem' }}>
+                            <label htmlFor="issueType" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Primary Legal Interest (Optional)</label>
+                            <select 
+                                id="issueType" 
+                                style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border-light)', borderRadius: '6px', background: 'var(--bg)' }}
+                                value={issueType}
+                                onChange={e => setIssueType(e.target.value)}
+                            >
+                                <option value="">Select an area</option>
+                                <option value="property">Property & Real Estate</option>
+                                <option value="family">Family & Divorce</option>
+                                <option value="consumer">Consumer Rights</option>
+                                <option value="labor">Employment & Labor</option>
+                                <option value="criminal">Criminal Defense</option>
+                                <option value="business">Business & Corporate</option>
+                            </select>
+                        </div>
 
-  return (
-    <div className="auth-shell onboarding-shell">
-      <div className="auth-panel onboarding-panel">
-        <Link to="/" className="brand-mark auth-brand">
-          <span className="brand-icon">NS</span>
-          <span className="brand-word">Nyaya Setu</span>
-        </Link>
-
-        <div className="auth-copy">
-          <span className="eyebrow">ONBOARDING</span>
-          <h1>Tell us about your legal need.</h1>
-          <p>We’ll use this to tailor guidance and help you take the next right step.</p>
-        </div>
-
-        <div className="stepper" aria-label="Onboarding progress">
-          {stepLabels.map((label, index) => (
-            <div key={label} className={`step-dot ${index <= step ? 'active' : ''}`}>
-              <span>{index + 1}</span>
-              <small>{label}</small>
+                        <button 
+                            type="submit" 
+                            className="btn-primary" 
+                            style={{ width: '100%', padding: '0.75rem' }}
+                            disabled={loading}
+                        >
+                            {loading ? 'Saving...' : 'Go to Dashboard'}
+                        </button>
+                    </form>
+                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                        <button className="btn-outline-pill" onClick={() => navigate('/dashboard')} style={{ border: 'none' }}>Skip for now</button>
+                    </div>
+                </div>
             </div>
-          ))}
         </div>
-
-        <form className="auth-form onboarding-form" onSubmit={handleSubmit}>
-          {step === 0 && (
-            <label>
-              <span>Full name</span>
-              <input
-                type="text"
-                value={form.fullName}
-                onChange={(e) => updateField('fullName', e.target.value)}
-                placeholder="Your full name"
-              />
-              {errors.fullName && <small className="field-error">{errors.fullName}</small>}
-            </label>
-          )}
-
-          {step === 1 && (
-            <>
-              <label>
-                <span>Phone number</span>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
-                  placeholder="+91 98765 43210"
-                />
-                {errors.phone && <small className="field-error">{errors.phone}</small>}
-              </label>
-
-              <label>
-                <span>City / location</span>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={(e) => updateField('city', e.target.value)}
-                  placeholder="Bengaluru"
-                />
-                {errors.city && <small className="field-error">{errors.city}</small>}
-              </label>
-
-              <label>
-                <span>Issue type</span>
-                <select value={form.issueType} onChange={(e) => updateField('issueType', e.target.value)}>
-                  <option value="general">General legal query</option>
-                  <option value="employment">Employment</option>
-                  <option value="property">Property</option>
-                  <option value="family">Family</option>
-                  <option value="consumer">Consumer</option>
-                </select>
-              </label>
-            </>
-          )}
-
-          {step === 2 && (
-            <div className="consent-box">
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={form.consentGiven}
-                  onChange={(e) => updateField('consentGiven', e.target.checked)}
-                />
-                <span>I consent to use my profile and document details to help me understand my legal issue and receive guidance.</span>
-              </label>
-              {errors.consentGiven && <small className="field-error">{errors.consentGiven}</small>}
-              <div className="info-line">Signed in as {user?.email ?? 'your account'}</div>
-            </div>
-          )}
-
-          {step < stepLabels.length - 1 ? (
-            <button type="button" className="primary-button full-width" onClick={nextStep}>
-              Continue
-            </button>
-          ) : (
-            <button type="submit" className="primary-button full-width" disabled={submitting}>
-              {submitting ? 'Saving...' : 'Finish onboarding'}
-            </button>
-          )}
-        </form>
-      </div>
-    </div>
-  );
+        </div>
+    );
 }

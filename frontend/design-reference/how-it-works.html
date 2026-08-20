@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How It Works — Nyaya Setu</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #FBF8F3;
+    color: #1A1615;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: #FBF8F3;
+    border-bottom: 1px solid #E5DFD8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 48px;
+    height: 64px;
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ns-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #3D2106;
+    border: 1.5px solid #C9A24B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .ns-wordmark {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #1A1615;
+    letter-spacing: -0.01em;
+  }
+
+  .nav-center {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .nav-center a {
+    text-decoration: none;
+    color: #786F68;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .nav-center a:hover {
+    color: #1A1615;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-login {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 20px;
+    border: 1px solid #E5DFD8;
+    border-radius: 999px;
+    background: transparent;
+    color: #1A1615;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.2s;
+  }
+
+  .btn-login:hover {
+    border-color: #786F68;
+  }
+
+  .btn-get-started {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 22px;
+    background-color: #3D2106;
+    border: 1px solid #C9A24B;
+    border-radius: 999px;
+    color: #FFFFFF;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 16px 35px rgba(201, 162, 75, 0.25);
+    transition: opacity 0.2s;
+  }
+
+  .btn-get-started:hover {
+    opacity: 0.9;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 80px 24px 40px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    font-variant: small-caps;
+    letter-spacing: 0.12em;
+    color: #786F68;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 48px;
+    line-height: 1.15;
+    color: #1A1615;
+    margin-bottom: 20px;
+  }
+
+  .hero p {
+    font-size: 17px;
+    color: #786F68;
+    line-height: 1.65;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* ─── STEPS ─── */
+  .steps-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    position: relative;
+  }
+
+  .steps-track {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .steps-track::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 56px;
+    bottom: 56px;
+    width: 1px;
+    background-color: #E5DFD8;
+  }
+
+  .step {
+    display: flex;
+    gap: 36px;
+    padding: 40px 0;
+    position: relative;
+  }
+
+  .step-left {
+    flex-shrink: 0;
+    width: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 4px;
+  }
+
+  .step-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: #F7F3EC;
+    border: 1px solid #E5DFD8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+  }
+
+  .step-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: #786F68;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .step-number {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 36px;
+    color: #C9A24B;
+    line-height: 1;
+    margin-top: 16px;
+  }
+
+  .step-right {
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .step-right h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 24px;
+    color: #1A1615;
+    margin-bottom: 10px;
+    line-height: 1.25;
+  }
+
+  .step-right p {
+    font-size: 16px;
+    color: #786F68;
+    line-height: 1.7;
+    max-width: 520px;
+  }
+
+  /* ─── CTA ─── */
+  .cta-section {
+    border-top: 1px solid #E5DFD8;
+    padding: 80px 24px;
+    text-align: center;
+  }
+
+  .cta-section h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 36px;
+    color: #1A1615;
+    margin-bottom: 28px;
+    line-height: 1.2;
+  }
+
+  .cta-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 36px;
+    background-color: #3D2106;
+    border: 1px solid #C9A24B;
+    border-radius: 0;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 16px 35px rgba(201, 162, 75, 0.25);
+    transition: opacity 0.2s;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 36px;
+    background: transparent;
+    border: 1px solid #E5DFD8;
+    border-radius: 0;
+    color: #1A1615;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .btn-outline:hover {
+    border-color: #786F68;
+    color: #3D2106;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid #E5DFD8;
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #786F68;
+  }
+
+  footer a {
+    color: #786F68;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  footer a:hover {
+    color: #1A1615;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 24px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 768px) {
+    nav {
+      padding: 0 20px;
+    }
+
+    .nav-center {
+      display: none;
+    }
+
+    .hero {
+      padding: 60px 20px 32px;
+    }
+
+    .hero h1 {
+      font-size: 36px;
+    }
+
+    .steps-section {
+      padding: 20px 20px 60px;
+    }
+
+    .step {
+      gap: 24px;
+      padding: 32px 0;
+    }
+
+    .step-number {
+      font-size: 28px;
+    }
+
+    .steps-track::before {
+      left: 22px;
+    }
+
+    .step-left {
+      width: 48px;
+    }
+
+    .step-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .step-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .step-right h3 {
+      font-size: 20px;
+    }
+
+    .cta-section h2 {
+      font-size: 28px;
+    }
+
+    .cta-buttons {
+      flex-direction: column;
+    }
+
+    .cta-buttons .btn-primary,
+    .cta-buttons .btn-outline {
+      width: 100%;
+      max-width: 280px;
+    }
+
+    footer {
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px 20px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav>
+  <div class="nav-left">
+    <div class="ns-badge">NS</div>
+    <span class="ns-wordmark">Nyaya Setu</span>
+  </div>
+  <div class="nav-center">
+    <a href="#">Home</a>
+    <a href="#">Ask Nyaya</a>
+    <a href="#">Know Your Rights</a>
+  </div>
+  <div class="nav-right">
+    <a href="#" class="btn-login">Login</a>
+    <a href="#" class="btn-get-started">Get Started</a>
+  </div>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <p class="eyebrow">How It Works</p>
+  <h1>Three steps to justice</h1>
+  <p>Nyaya Setu makes legal guidance accessible. No jargon, no confusion &mdash; just clear answers and actionable steps.</p>
+</section>
+
+<!-- ═══════════ STEPS ═══════════ -->
+<section class="steps-section">
+  <div class="steps-track">
+
+    <!-- Step 01 -->
+    <div class="step">
+      <div class="step-left">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span class="step-number">01</span>
+      </div>
+      <div class="step-right">
+        <h3>Ask Your Question</h3>
+        <p>Type or speak your legal question in any language. Nyaya Setu understands plain language &mdash; no legal terminology needed.</p>
+      </div>
+    </div>
+
+    <!-- Step 02 -->
+    <div class="step">
+      <div class="step-left">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="13" y2="17"/>
+          </svg>
+        </div>
+        <span class="step-number">02</span>
+      </div>
+      <div class="step-right">
+        <h3>Get Grounded Answers</h3>
+        <p>Receive clear, structured guidance: your rights under Indian law, what the law says, and what you can do &mdash; with citations to actual Acts and Sections.</p>
+      </div>
+    </div>
+
+    <!-- Step 03 -->
+    <div class="step">
+      <div class="step-left">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24">
+            <line x1="12" y1="2" x2="12" y2="22"/>
+            <polyline points="18 8 12 2 6 8"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <path d="M8 20l4-4 4 4"/>
+          </svg>
+        </div>
+        <span class="step-number">03</span>
+      </div>
+      <div class="step-right">
+        <h3>Take Action</h3>
+        <p>Draft legal documents, simulate your case timeline, or connect with legal aid &mdash; all from one place.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════ CTA ═══════════ -->
+<section class="cta-section">
+  <h2>Ready to know your rights?</h2>
+  <div class="cta-buttons">
+    <a href="#" class="btn-primary">Get Started</a>
+    <a href="#" class="btn-outline">Ask Nyaya</a>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <span>&copy; 2026 Nyaya Setu</span>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>

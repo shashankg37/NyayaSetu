@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nyaya Setu — Login / Sign Up</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --text-primary: #1A1615;
+    --text-secondary: #786F68;
+    --btn-fill: #3D2106;
+    --accent: #C9A24B;
+    --btn-text: #FFFFFF;
+    --border-light: #E5DFD8;
+    --input-bg: #FBF8F3;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ns-badge {
+    width: 32px;
+    height: 32px;
+    background: var(--btn-fill);
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--btn-text);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .wordmark {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover {
+    color: var(--text-primary);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-outline-pill {
+    background: transparent;
+    border: 1.5px solid var(--text-primary);
+    border-radius: 999px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+    font-family: inherit;
+  }
+
+  .btn-outline-pill:hover {
+    background: var(--text-primary);
+    color: var(--btn-text);
+  }
+
+  .btn-primary {
+    background: var(--btn-fill);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--btn-text);
+    cursor: pointer;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    box-shadow: 0 16px 35px rgba(201,162,75,0.25);
+    transition: opacity 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 8px 24px rgba(201,162,75,0.35);
+  }
+
+  /* ── MAIN ── */
+  .page-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px 80px;
+  }
+
+  /* ── CARD ── */
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    padding: 40px 36px 36px;
+    max-width: 440px;
+    width: 100%;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 28px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 10px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+    font-family: inherit;
+    transition: color 0.25s;
+  }
+
+  .tab-btn.active {
+    color: var(--text-primary);
+  }
+
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  /* ── FORMS ── */
+  .form-panel {
+    display: none;
+    animation: fadeIn 0.25s ease;
+  }
+
+  .form-panel.visible {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 0;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--accent);
+  }
+
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23786F68' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  .btn-submit {
+    width: 100%;
+    background: var(--btn-fill);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    padding: 14px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--btn-text);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    box-shadow: 0 16px 35px rgba(201,162,75,0.25);
+    font-family: inherit;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    margin-top: 4px;
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .btn-submit:not(:disabled):hover {
+    opacity: 0.9;
+    box-shadow: 0 8px 24px rgba(201,162,75,0.35);
+  }
+
+  /* ── CHECKBOX ── */
+  .consent-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    margin-top: 4px;
+  }
+
+  .consent-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--btn-fill);
+    cursor: pointer;
+  }
+
+  .consent-row span {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+
+  /* ── SWITCH LINK ── */
+  .switch-text {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 20px;
+  }
+
+  .switch-text a {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  .switch-text a:hover {
+    color: var(--accent);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 520px) {
+    nav { padding: 0 16px; }
+    .nav-links { display: none; }
+    .auth-card { padding: 32px 24px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ NAV ══════════ -->
+<nav>
+  <div class="nav-left">
+    <div class="ns-badge">NS</div>
+    <span class="wordmark">Nyaya Setu</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#">Home</a></li>
+    <li><a href="#">Ask Nyaya</a></li>
+    <li><a href="#">Know Your Rights</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="#" class="btn-outline-pill">Login</a>
+    <a href="#" class="btn-primary">Get Started</a>
+  </div>
+</nav>
+
+<!-- ══════════ PAGE ══════════ -->
+<div class="page-wrap">
+  <div class="auth-card">
+    <div class="eyebrow">Secure Access</div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">Login</button>
+      <button class="tab-btn" data-tab="signup">Signup</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="form-panel visible" id="panel-login">
+      <form onsubmit="return false;">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="login-pass">Password</label>
+          <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-submit">Login</button>
+      </form>
+      <p class="switch-text">Don't have an account? <a data-switch="signup">Sign up</a></p>
+    </div>
+
+    <!-- SIGNUP -->
+    <div class="form-panel" id="panel-signup">
+      <form onsubmit="return false;">
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="signup-pass">Password</label>
+          <input type="password" id="signup-pass" placeholder="Enter password" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="signup-lang">Preferred Language</label>
+          <select id="signup-lang">
+            <option value="" disabled selected>Select language</option>
+            <option>English</option>
+            <option>Hindi</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>Bengali</option>
+            <option>Marathi</option>
+            <option>Kannada</option>
+            <option>Malayalam</option>
+            <option>Gujarati</option>
+            <option>Punjabi</option>
+            <option>Odia</option>
+            <option>Assamese</option>
+          </select>
+        </div>
+        <div class="consent-row">
+          <input type="checkbox" id="consent">
+          <span for="consent">I agree to Nyaya Setu's data use and privacy terms</span>
+        </div>
+        <button type="submit" class="btn-submit" id="signup-btn" disabled>Create Account</button>
+      </form>
+      <p class="switch-text">Already have an account? <a data-switch="login">Log in</a></p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var tabs    = document.querySelectorAll('.tab-btn');
+    var panels  = document.querySelectorAll('.form-panel');
+    var consent = document.getElementById('consent');
+    var signupBtn = document.getElementById('signup-btn');
+
+    function switchTab(name) {
+      tabs.forEach(function (t) {
+        t.classList.toggle('active', t.getAttribute('data-tab') === name);
+      });
+      panels.forEach(function (p) {
+        p.classList.toggle('visible', p.id === 'panel-' + name);
+      });
+    }
+
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        switchTab(t.getAttribute('data-tab'));
+      });
+    });
+
+    document.querySelectorAll('[data-switch]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        switchTab(link.getAttribute('data-switch'));
+      });
+    });
+
+    consent.addEventListener('change', function () {
+      signupBtn.disabled = !consent.checked;
+    });
+  })();
+</script>
+</body>
+</html>

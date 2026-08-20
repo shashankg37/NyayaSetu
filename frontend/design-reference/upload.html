@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload — Nyaya Setu</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:#FBF8F3;color:#1A1615;min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{text-decoration:none;color:inherit}
+
+  /* NAV */
+  .nav{
+    position:sticky;top:0;z-index:100;background:#FBF8F3;
+    border-bottom:1px solid #E5DFD8;display:flex;align-items:center;
+    justify-content:space-between;padding:0 40px;height:64px;
+  }
+  .nav-left{display:flex;align-items:center;gap:10px}
+  .ns-badge{
+    width:34px;height:34px;background:#3D2106;border:1px solid #C9A24B;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Playfair Display',Georgia,serif;font-size:15px;
+    font-weight:700;color:#C9A24B;letter-spacing:-0.02em;
+  }
+  .ns-wordmark{
+    font-family:'Playfair Display',Georgia,serif;font-size:20px;
+    font-weight:700;color:#1A1615;letter-spacing:-0.01em;
+  }
+  .nav-center{display:flex;align-items:center;gap:28px}
+  .nav-link{
+    font-size:14px;color:#786F68;letter-spacing:0.02em;
+    cursor:pointer;transition:color 0.2s;
+  }
+  .nav-link:hover{color:#1A1615}
+  .nav-link.active{color:#1A1615;font-weight:600}
+  .nav-right{display:flex;align-items:center;gap:12px}
+  .btn-login{
+    font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+    padding:8px 22px;border:1px solid #E5DFD8;background:transparent;
+    color:#1A1615;cursor:pointer;border-radius:999px;transition:all 0.2s;
+  }
+  .btn-login:hover{border-color:#C9A24B;color:#3D2106}
+  .btn-getstarted{
+    font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+    padding:8px 22px;border:1px solid #C9A24B;background:#3D2106;
+    color:#FFF;cursor:pointer;border-radius:999px;
+    box-shadow:0 16px 35px rgba(201,162,75,0.25);transition:all 0.2s;
+  }
+  .btn-getstarted:hover{background:#2B1605}
+
+  /* PAGE LAYOUT */
+  .page{max-width:640px;margin:0 auto;padding:60px 24px 100px}
+
+  /* EYEBROW */
+  .eyebrow{
+    font-size:11px;font-variant:small-caps;letter-spacing:0.12em;
+    color:#786F68;text-transform:uppercase;margin-bottom:12px;
+  }
+
+  /* HEADLINE */
+  .headline{
+    font-family:'Playfair Display',Georgia,serif;font-size:36px;
+    font-weight:700;color:#1A1615;line-height:1.2;margin-bottom:36px;
+  }
+  .headline.subtitle{font-size:28px;margin-bottom:32px}
+
+  /* STATES */
+  .state{display:none}
+  .state.active{display:block;animation:fadeUp 0.4s ease both}
+  @keyframes fadeUp{
+    from{opacity:0;transform:translateY(12px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* STATE 1: UPLOAD */
+  .drop-zone{
+    border:2px dashed #C9A24B;background:#F7F3EC;
+    padding:60px 32px;text-align:center;cursor:pointer;
+    transition:all 0.25s ease;position:relative;
+  }
+  .drop-zone:hover{border-color:#C9A24B;background:#F3EEE6}
+  .drop-zone.dragover{
+    border-style:solid;border-color:#C9A24B;
+    background:#F3EEE6;
+    box-shadow:0 0 0 4px rgba(201,162,75,0.12);
+  }
+  .drop-zone input[type="file"]{display:none}
+  .upload-icon{margin:0 auto 20px;width:48px;height:48px;color:#786F68}
+  .upload-text{
+    font-size:16px;color:#786F68;margin-bottom:8px;font-weight:500;
+  }
+  .upload-sub{font-size:13px;color:#786F68;opacity:0.7;margin-bottom:28px}
+  .upload-or{
+    display:flex;align-items:center;gap:12px;justify-content:center;
+  }
+  .upload-or-line{width:40px;height:1px;background:#E5DFD8}
+  .upload-or-text{font-size:12px;color:#786F68;letter-spacing:0.06em;text-transform:uppercase}
+  .camera-btn{
+    display:inline-flex;align-items:center;gap:6px;margin-top:24px;
+    padding:10px 20px;border:1px solid #E5DFD8;background:#FBF8F3;
+    color:#786F68;font-size:13px;letter-spacing:0.04em;cursor:pointer;
+    transition:all 0.2s;
+  }
+  .camera-btn:hover{border-color:#C9A24B;color:#1A1615}
+  .camera-btn svg{width:16px;height:16px}
+
+  /* STATE 2: PROCESSING */
+  .processing{text-align:center;padding:80px 0}
+  .pulse-container{display:flex;justify-content:center;margin-bottom:32px}
+  .pulse-dot{
+    width:14px;height:14px;background:#C9A24B;border-radius:50%;
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.3;transform:scale(0.8)}
+    50%{opacity:1;transform:scale(1)}
+  }
+  .processing-text{font-size:16px;color:#786F68;margin-bottom:8px}
+  .processing-sub{font-size:13px;color:#786F68;opacity:0.6}
+
+  /* STATE 3: RESULTS */
+  .doc-type-pill{
+    display:inline-block;font-size:11px;font-variant:small-caps;
+    letter-spacing:0.12em;text-transform:uppercase;
+    background:#C9A24B;color:#1A1615;padding:6px 16px;margin-bottom:20px;
+  }
+
+  /* EXTRACTED FACTS */
+  .facts-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:0;
+    border:1px solid #E5DFD8;margin:0 0 40px;
+  }
+  .fact-item{
+    padding:20px 24px;border-bottom:1px solid #E5DFD8;
+    position:relative;
+  }
+  .fact-item:nth-child(odd){border-right:1px solid #E5DFD8}
+  .fact-item:nth-last-child(-n+2){border-bottom:none}
+  .fact-label{
+    font-size:10px;font-variant:small-caps;letter-spacing:0.12em;
+    text-transform:uppercase;color:#786F68;margin-bottom:8px;
+  }
+  .fact-value{font-size:15px;color:#1A1615;line-height:1.5}
+
+  /* ANSWER SECTIONS */
+  .answer-section{margin-bottom:28px}
+  .answer-heading{
+    font-family:'Playfair Display',Georgia,serif;font-size:18px;
+    font-weight:700;color:#1A1615;margin-bottom:8px;
+  }
+  .answer-body{font-size:14px;color:#786F68;line-height:1.7}
+  .source-pill{
+    display:inline-block;font-size:11px;color:#786F68;
+    border:1px solid #C9A24B;padding:5px 12px;margin-top:4px;
+    letter-spacing:0.04em;
+  }
+
+  /* RESULT BUTTONS */
+  .result-btns{display:flex;gap:12px;margin-top:40px}
+  .btn-primary{
+    font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+    padding:12px 28px;border:1px solid #C9A24B;background:#3D2106;
+    color:#FFF;cursor:pointer;
+    box-shadow:0 16px 35px rgba(201,162,75,0.25);transition:all 0.2s;
+  }
+  .btn-primary:hover{background:#2B1605}
+  .btn-outline{
+    font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+    padding:12px 28px;border:1px solid #E5DFD8;background:transparent;
+    color:#1A1615;cursor:pointer;transition:all 0.2s;
+  }
+  .btn-outline:hover{border-color:#C9A24B;color:#3D2106}
+
+  @media(max-width:480px){
+    .nav{padding:0 16px}
+    .nav-center{display:none}
+    .page{padding:40px 16px 80px}
+    .headline{font-size:28px}
+    .headline.subtitle{font-size:22px}
+    .facts-grid{grid-template-columns:1fr}
+    .fact-item:nth-child(odd){border-right:none}
+    .fact-item{border-bottom:1px solid #E5DFD8}
+    .result-btns{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="ns-badge">NS</div>
+    <div class="ns-wordmark">Nyaya Setu</div>
+  </div>
+  <div class="nav-center">
+    <a class="nav-link" href="#">Home</a>
+    <a class="nav-link" href="#">Ask Nyaya</a>
+    <a class="nav-link" href="#">Know Your Rights</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-login">Login</button>
+    <button class="btn-getstarted">Get Started</button>
+  </div>
+</nav>
+
+<!-- STATE 1: UPLOAD -->
+<div class="state active" id="state-upload">
+  <div class="page">
+    <div class="eyebrow">Document Intelligence</div>
+    <h1 class="headline">Upload Your Document</h1>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png">
+      <svg class="upload-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M24 32V16"/>
+        <path d="M16 22l8-8 8 8"/>
+        <path d="M8 32v6h32v-6"/>
+      </svg>
+      <div class="upload-text">Upload or take a photo of your document</div>
+      <div class="upload-sub">PDF, JPG, PNG — up to 10MB</div>
+      <div class="upload-or">
+        <div class="upload-or-line"></div>
+        <div class="upload-or-text">or</div>
+        <div class="upload-or-line"></div>
+      </div>
+      <button class="camera-btn" id="cameraBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Take a photo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- STATE 2: PROCESSING -->
+<div class="state" id="state-processing">
+  <div class="page">
+    <div class="processing">
+      <div class="pulse-container">
+        <div class="pulse-dot"></div>
+      </div>
+      <div class="processing-text">Analyzing your document...</div>
+      <div class="processing-sub">This usually takes a few seconds</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATE 3: RESULTS -->
+<div class="state" id="state-results">
+  <div class="page">
+    <div class="eyebrow">Document Intelligence</div>
+    <div class="doc-type-pill">Rental Agreement</div>
+    <h1 class="headline subtitle">Document Analysis</h1>
+
+    <div class="facts-grid">
+      <div class="fact-item">
+        <div class="fact-label">Parties</div>
+        <div class="fact-value">Ravi Kumar (Tenant) &amp; Sunil Mehta (Landlord)</div>
+      </div>
+      <div class="fact-item">
+        <div class="fact-label">Key Dates</div>
+        <div class="fact-value">Agreement start — 1 Jan 2025<br>Agreement end — 31 Dec 2025</div>
+      </div>
+      <div class="fact-item">
+        <div class="fact-label">Deadline</div>
+        <div class="fact-value">Notice period — 30 days before termination</div>
+      </div>
+      <div class="fact-item">
+        <div class="fact-label">Authority</div>
+        <div class="fact-value">Mumbai Suburban District Court</div>
+      </div>
+    </div>
+
+    <div class="answer-section">
+      <h2 class="answer-heading">Your Right</h2>
+      <p class="answer-body">As a tenant under the Maharashtra Rent Control Act, 1999, you have the right to reasonable notice before eviction and protection from arbitrary lockout.</p>
+    </div>
+
+    <div class="answer-section">
+      <h2 class="answer-heading">What This Means</h2>
+      <p class="answer-body">Your landlord cannot evict you without a 30-day written notice and a valid reason recognized under the Act.</p>
+    </div>
+
+    <div class="answer-section">
+      <h2 class="answer-heading">What You Can Do</h2>
+      <p class="answer-body">Send a written acknowledgment of the notice period. If challenged, approach the Rent Control Court.</p>
+    </div>
+
+    <div class="answer-section">
+      <h2 class="answer-heading">Source</h2>
+      <div class="source-pill">Maharashtra Rent Control Act, 1999 — Section 15</div>
+    </div>
+
+    <div class="result-btns">
+      <button class="btn-primary">Draft a Notice</button>
+      <button class="btn-outline">Ask Nyaya</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var dropZone = document.getElementById('dropZone');
+  var fileInput = document.getElementById('fileInput');
+  var cameraBtn = document.getElementById('cameraBtn');
+
+  var stateUpload = document.getElementById('state-upload');
+  var stateProcessing = document.getElementById('state-processing');
+  var stateResults = document.getElementById('state-results');
+
+  function switchState(from, to){
+    from.classList.remove('active');
+    to.classList.add('active');
+  }
+
+  function handleFile(){
+    switchState(stateUpload, stateProcessing);
+    setTimeout(function(){
+      switchState(stateProcessing, stateResults);
+    }, 3000);
+  }
+
+  dropZone.addEventListener('click', function(e){
+    if(e.target === cameraBtn || cameraBtn.contains(e.target)) return;
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', function(){
+    if(fileInput.files.length > 0) handleFile();
+  });
+
+  cameraBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    fileInput.click();
+  });
+
+  dropZone.addEventListener('dragover', function(e){
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', function(){
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', function(e){
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if(e.dataTransfer.files.length > 0) handleFile();
+  });
+})();
+</script>
+
+</body>
+</html>

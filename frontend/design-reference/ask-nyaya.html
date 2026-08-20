@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask Nyaya — AI Legal Assistant | Nyaya Setu</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FBF8F3;--surface:#F7F3EC;--primary:#1A1615;--secondary:#786F68;
+  --btn:#3D2106;--accent:#C9A24B;--btn-text:#FFFFFF;--border:#E5DFD8;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --chat-max:820px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--sans);color:var(--primary);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;background:rgba(251,248,243,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.nav-left{display:flex;align-items:center;gap:14px}
+.ns-badge{width:30px;height:30px;background:var(--btn);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);font-family:var(--serif);font-size:11px;font-weight:700;letter-spacing:0.04em}
+.ns-wordmark{font-family:var(--serif);font-weight:700;font-size:18px;color:var(--primary);letter-spacing:-0.01em}
+.nav-center{display:flex;align-items:center;gap:28px;margin-left:40px}
+.nav-link{font-size:13px;color:var(--secondary);text-decoration:none;cursor:pointer;transition:color 0.2s;font-weight:500;letter-spacing:0.02em}
+.nav-link:hover,.nav-link.active{color:var(--primary)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.btn-outline{font-family:var(--sans);font-size:12px;color:var(--primary);border:1px solid var(--border);background:transparent;padding:7px 18px;border-radius:999px;cursor:pointer;letter-spacing:0.06em;transition:border-color 0.2s,background 0.2s}
+.btn-outline:hover{border-color:var(--accent)}
+.btn-primary{font-family:var(--sans);font-size:12px;color:var(--btn-text);background:var(--btn);border:1px solid var(--accent);padding:7px 20px;border-radius:0;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 12px 28px rgba(201,162,75,0.22);transition:box-shadow 0.2s,background 0.2s}
+.btn-primary:hover{background:#2e1a05;box-shadow:0 16px 36px rgba(201,162,75,0.3)}
+
+/* ── LAYOUT ── */
+.page{display:flex;height:100vh;padding-top:60px}
+
+/* ── SIDEBAR ── */
+.sidebar{width:260px;border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar-header{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-title{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--primary);margin-bottom:12px}
+.btn-new-chat{width:100%;padding:10px 16px;background:var(--btn);border:1px solid var(--accent);color:var(--btn-text);font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:background 0.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-new-chat:hover{background:#2e1a05}
+.btn-new-chat svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.sidebar-list{flex:1;overflow-y:auto;padding:8px 0}
+.sidebar-list::-webkit-scrollbar{width:4px}
+.sidebar-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.conv-group-label{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--secondary);padding:16px 20px 6px}
+.conv-item{padding:10px 20px;font-size:13px;color:var(--secondary);cursor:pointer;transition:background 0.15s,color 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid transparent}
+.conv-item:hover{background:rgba(201,162,75,0.06);color:var(--primary)}
+.conv-item.active{background:rgba(201,162,75,0.08);color:var(--primary);border-left-color:var(--accent);font-weight:500}
+
+/* ── MAIN CHAT ── */
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+
+/* ── WELCOME STATE ── */
+.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;opacity:1;transition:opacity 0.4s}
+.welcome.hidden{opacity:0;pointer-events:none;position:absolute}
+.welcome-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);font-family:var(--serif);font-size:clamp(120px,18vw,260px);font-weight:700;color:var(--primary);opacity:0.025;pointer-events:none;white-space:nowrap;letter-spacing:-0.02em;user-select:none}
+.welcome-icon{width:64px;height:64px;margin-bottom:24px;opacity:0.7}
+.welcome-icon svg{width:100%;height:100%;stroke:var(--accent);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.welcome h1{font-family:var(--serif);font-size:32px;font-weight:700;color:var(--primary);line-height:1.2;margin-bottom:8px;letter-spacing:-0.01em}
+.welcome p{font-size:15px;color:var(--secondary);max-width:420px;line-height:1.6;margin-bottom:32px}
+.welcome-eyebrow{font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+
+/* Suggestion cards */
+.suggestions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:560px;width:100%}
+.suggestion-card{background:var(--surface);border:1px solid var(--border);padding:16px 18px;text-align:left;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s,transform 0.15s}
+.suggestion-card:hover{border-color:var(--accent);box-shadow:0 4px 20px rgba(201,162,75,0.1);transform:translateY(-1px)}
+.suggestion-card:active{transform:translateY(0)}
+.suggestion-icon{width:28px;height:28px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--border)}
+.suggestion-icon svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.suggestion-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--primary);margin-bottom:4px;line-height:1.3}
+.suggestion-desc{font-size:12px;color:var(--secondary);line-height:1.5}
+
+/* ── CHAT AREA ── */
+.chat-area{flex:1;overflow-y:auto;padding:24px 0 120px 0;scroll-behavior:smooth;opacity:0;transition:opacity 0.4s}
+.chat-area.visible{opacity:1}
+.chat-area::-webkit-scrollbar{width:5px}
+.chat-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.chat-inner{max-width:var(--chat-max);margin:0 auto;padding:0 24px}
+
+/* ── USER MESSAGE ── */
+.msg-row-user{display:flex;justify-content:flex-end;margin-bottom:20px;animation:msgSlideRight 0.35s ease}
+.msg-user{background:var(--surface);border:1px solid var(--border);padding:12px 18px;max-width:55%;font-size:15px;line-height:1.55;color:var(--primary);position:relative}
+.msg-user::after{content:'';position:absolute;right:-6px;top:12px;width:12px;height:12px;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);transform:rotate(-45deg);margin-top:-6px}
+@keyframes msgSlideRight{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── AI MESSAGE ── */
+.msg-row-ai{margin-bottom:28px;animation:msgFadeUp 0.45s ease}
+.ai-avatar{display:flex;align-items:flex-start;gap:12px}
+.ai-avatar-badge{width:28px;height:28px;background:var(--btn);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.ai-avatar-badge span{font-family:var(--serif);font-size:9px;font-weight:700;color:var(--accent);letter-spacing:0.03em}
+.ai-body{flex:1;min-width:0}
+
+/* AI structured response */
+.ai-card{background:var(--surface);border:1px solid var(--border);padding:20px 22px;margin-bottom:8px}
+.ai-section{margin-bottom:18px}
+.ai-section:last-child{margin-bottom:0}
+.ai-section-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.ai-section-label::before{content:'';display:inline-block;width:14px;height:1px;background:var(--accent)}
+.ai-section-text{font-size:14.5px;line-height:1.7;color:var(--secondary);max-width:680px}
+.ai-section-text strong{color:var(--primary);font-weight:600}
+
+/* Citation */
+.ai-citation{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border);background:var(--bg);font-size:12px;color:var(--secondary);letter-spacing:0.02em;line-height:1.4;margin-top:4px}
+.ai-citation svg{width:12px;height:12px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0}
+
+/* Chips */
+.ai-chips{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 2px;margin-top:8px;scrollbar-width:none}
+.ai-chips::-webkit-scrollbar{display:none}
+.ai-chip{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);background:var(--bg);font-size:12.5px;color:var(--primary);cursor:pointer;transition:all 0.2s;letter-spacing:0.01em;white-space:nowrap}
+.ai-chip:hover{border-color:var(--accent);color:var(--accent);background:rgba(201,162,75,0.04)}
+.ai-chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+@keyframes msgFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── TYPING INDICATOR ── */
+.typing-row{display:none;padding:8px 0 16px;margin-left:40px}
+.typing-row.visible{display:block}
+.typing-dots{display:flex;gap:5px;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);width:fit-content}
+.typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:0.3;animation:typingPulse 1.4s infinite}
+.typing-dots span:nth-child(2){animation-delay:0.15s}
+.typing-dots span:nth-child(3){animation-delay:0.3s}
+@keyframes typingPulse{0%,60%,100%{opacity:0.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* ── INPUT BAR ── */
+.input-area{position:fixed;bottom:0;left:260px;right:0;z-index:90;background:linear-gradient(to top,var(--bg) 78%,transparent);padding:16px 0 20px}
+.input-wrap{max-width:var(--chat-max);margin:0 auto;padding:0 24px}
+.input-bar{display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--border);padding:6px 8px 6px 18px;transition:border-color 0.25s,box-shadow 0.25s}
+.input-bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,162,75,0.08)}
+.input-field{flex:1;min-width:0;border:none;background:transparent;font-family:var(--sans);font-size:15px;color:var(--primary);outline:none;padding:8px 0;resize:none;line-height:1.5;max-height:120px}
+.input-field::placeholder{color:var(--secondary)}
+.input-actions{display:flex;align-items:center;gap:2px;padding-bottom:4px}
+.icon-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
+.icon-btn:hover{background:var(--bg)}
+.icon-btn svg{width:18px;height:18px;stroke:var(--secondary);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:stroke 0.2s}
+.icon-btn:hover svg{stroke:var(--primary)}
+.send-btn{width:36px;height:36px;border-radius:50%;border:none;background:var(--btn);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.2s,transform 0.15s}
+.send-btn:hover{background:#2e1a05}
+.send-btn:active{transform:scale(0.94)}
+.send-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.send-btn.disabled{opacity:0.35;cursor:default;pointer-events:none}
+.input-hint{font-size:11px;color:var(--secondary);text-align:center;margin-top:8px;opacity:0.7;letter-spacing:0.02em}
+
+/* ── TIMESTAMP ── */
+.msg-time{font-size:11px;color:var(--secondary);opacity:0.6;margin-top:6px;letter-spacing:0.02em}
+.msg-row-user .msg-time{text-align:right}
+
+/* ── DIVIDER ── */
+.chat-divider{display:flex;align-items:center;gap:12px;margin:20px 0;opacity:0.5}
+.chat-divider::before,.chat-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.chat-divider span{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--secondary);white-space:nowrap}
+
+/* ── EMPTY CHIP SCROLLBAR ── */
+.chips::-webkit-scrollbar{height:0}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="ns-badge">NS</div>
+      <span class="ns-wordmark">Nyaya Setu</span>
+    </div>
+    <div class="nav-center">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link active" href="ask-nyaya.html">Ask Nyaya</a>
+      <a class="nav-link" href="know-your-rights.html">Know Your Rights</a>
+    </div>
+    <div class="nav-right">
+      <button class="btn-outline">Login</button>
+      <button class="btn-primary">Get Started</button>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Conversations</div>
+      <button class="btn-new-chat" id="newChatBtn">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+    </div>
+    <div class="sidebar-list" id="sidebarList">
+      <div class="conv-group-label">Today</div>
+      <div class="conv-item active">Can my landlord evict me without notice?</div>
+      <div class="conv-item">Tenant rights during renovation</div>
+      <div class="conv-group-label">Yesterday</div>
+      <div class="conv-item">Property tax assessment dispute</div>
+      <div class="conv-item">Noise complaint legal options</div>
+      <div class="conv-group-label">Previous 7 days</div>
+      <div class="conv-item">Worker minimum wage protections</div>
+      <div class="conv-item">Consumer complaint against e-commerce</div>
+    </div>
+  </aside>
+
+  <!-- MAIN CHAT -->
+  <div class="chat-main">
+
+    <!-- WELCOME STATE -->
+    <div class="welcome" id="welcomeState">
+      <div class="welcome-watermark">JUSTICE</div>
+      <div class="welcome-eyebrow">AI Legal Assistant</div>
+      <div class="welcome-icon">
+        <svg viewBox="0 0 64 64">
+          <circle cx="32" cy="16" r="6"/>
+          <path d="M32 24v16"/>
+          <path d="M20 44l12-4 12 4"/>
+          <path d="M24 32h16"/>
+          <path d="M28 28l-8 16"/>
+          <path d="M36 28l8 16"/>
+          <circle cx="22" cy="28" r="1" fill="currentColor"/>
+          <circle cx="42" cy="28" r="1" fill="currentColor"/>
+          <path d="M16 20l4 4M48 20l-4 4"/>
+        </svg>
+      </div>
+      <h1>How can I help you<br>today?</h1>
+      <p>Ask any legal question in English or Hindi. I'll ground my answer in actual Indian law and show you exactly what you can do.</p>
+
+      <div class="suggestions">
+        <div class="suggestion-card" data-msg="What are my rights as a tenant in India?">
+          <div class="suggestion-icon">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div class="suggestion-title">Tenant Rights</div>
+          <div class="suggestion-desc">What protections do I have as a renter?</div>
+        </div>
+        <div class="suggestion-card" data-msg="How do I file a consumer complaint in India?">
+          <div class="suggestion-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="suggestion-title">Consumer Complaint</div>
+          <div class="suggestion-desc">Steps to file a complaint against a company</div>
+        </div>
+        <div class="suggestion-card" data-msg="What is the minimum wage for workers in my state?">
+          <div class="suggestion-icon">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="suggestion-title">Worker Wages</div>
+          <div class="suggestion-desc">What am I legally entitled to earn?</div>
+        </div>
+        <div class="suggestion-card" data-msg="Can I get free legal aid?">
+          <div class="suggestion-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="suggestion-title">Free Legal Aid</div>
+          <div class="suggestion-desc">Access government legal services</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT MESSAGES -->
+    <div class="chat-area" id="chatArea">
+      <div class="chat-inner" id="chatInner">
+
+        <!-- Existing conversation -->
+        <div class="msg-row-user">
+          <div>
+            <div class="msg-user">Can my landlord evict me without notice?</div>
+            <div class="msg-time">Today, 10:24 AM</div>
+          </div>
+        </div>
+
+        <div class="msg-row-ai">
+          <div class="ai-avatar">
+            <div class="ai-avatar-badge"><span>NS</span></div>
+            <div class="ai-body">
+              <div class="ai-card">
+                <div class="ai-section">
+                  <div class="ai-section-label">Your Right</div>
+                  <div class="ai-section-text">As a tenant in India, you have the <strong>right to reasonable notice before eviction</strong>. Under most state rent control acts, a landlord must give written notice — typically <strong>15 to 30 days</strong> — before initiating eviction proceedings. An eviction without notice is not legally valid.</div>
+                </div>
+                <div class="ai-section">
+                  <div class="ai-section-label">What the Law Says</div>
+                  <div class="ai-section-text">The <strong>Maharashtra Rent Control Act, 1999 (Section 15)</strong> and similar state laws require landlords to issue a formal notice detailing the reason for eviction. Without this, the eviction has no legal standing in court.</div>
+                </div>
+                <div class="ai-section">
+                  <div class="ai-section-label">What You Can Do</div>
+                  <div class="ai-section-text">Request a written copy of the notice. If none was given, you can approach the <strong>Rent Control Court</strong> to challenge the eviction. Keep all communication records — texts, emails, letters — as evidence of your tenancy and the landlord's actions.</div>
+                </div>
+                <div class="ai-section">
+                  <div class="ai-citation">
+                    <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    Maharashtra Rent Control Act, 1999 — Section 15 &nbsp;|&nbsp; Delhi Rent Control Act, 1958 — Section 14
+                  </div>
+                </div>
+              </div>
+
+              <div class="ai-chips">
+                <button class="ai-chip" data-msg="Draft a legal notice to my landlord">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Draft this notice
+                </button>
+                <button class="ai-chip" data-msg="Show me the eviction timeline">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  See my timeline
+                </button>
+                <button class="ai-chip" data-msg="What happens if I refuse to leave?">
+                  <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Simulate this
+                </button>
+              </div>
+
+              <div class="msg-time">Today, 10:24 AM</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typing -->
+        <div class="typing-row" id="typingIndicator">
+          <div class="ai-avatar">
+            <div class="ai-avatar-badge"><span>NS</span></div>
+            <div class="ai-body">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- INPUT BAR -->
+<div class="input-area">
+  <div class="input-wrap">
+    <div class="input-bar">
+      <textarea class="input-field" id="chatInput" placeholder="Ask a legal question..." rows="1" autocomplete="off"></textarea>
+      <div class="input-actions">
+        <button class="icon-btn" title="Voice input" aria-label="Voice input">
+          <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+        </button>
+        <button class="icon-btn" title="Upload document" aria-label="Upload document">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+        <button class="send-btn disabled" id="sendBtn" title="Send" aria-label="Send message">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="input-hint">Nyaya Setu provides legal information, not legal advice. For case-specific guidance, consult a licensed advocate.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var chatArea = document.getElementById('chatArea');
+  var chatInner = document.getElementById('chatInner');
+  var chatInput = document.getElementById('chatInput');
+  var sendBtn = document.getElementById('sendBtn');
+  var welcomeState = document.getElementById('welcomeState');
+  var typingEl = document.getElementById('typingIndicator');
+  var newChatBtn = document.getElementById('newChatBtn');
+  var sidebarItems = document.querySelectorAll('.conv-item');
+
+  function scrollBottom(){
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  // Auto-resize textarea
+  chatInput.addEventListener('input', function(){
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    sendBtn.classList.toggle('disabled', !this.value.trim());
+  });
+
+  function hideWelcome(){
+    welcomeState.classList.add('hidden');
+    chatArea.classList.add('visible');
+  }
+
+  // Suggestions
+  document.querySelectorAll('.suggestion-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      var msg = this.getAttribute('data-msg');
+      if(msg) sendMessage(msg);
+    });
+  });
+
+  // Sidebar
+  newChatBtn.addEventListener('click', function(){
+    // Reset to welcome state
+    welcomeState.classList.remove('hidden');
+    chatArea.classList.remove('visible');
+    sidebarItems.forEach(function(i){ i.classList.remove('active'); });
+  });
+  sidebarItems.forEach(function(item){
+    item.addEventListener('click', function(){
+      sidebarItems.forEach(function(i){ i.classList.remove('active'); });
+      this.classList.add('active');
+    });
+  });
+
+  // AI reply database
+  var aiReplies = {
+    "What are my rights as a tenant in India?": {
+      sections: [
+        { label: "Your Right", text: "As a tenant in India, you are protected by <strong>state-specific Rent Control Acts</strong>. These laws guarantee you the right to: continue living in the property as long as you pay rent, receive proper written notice before eviction (typically 15–30 days), and have a habitable living environment maintained by the landlord." },
+        { label: "What the Law Says", text: "Each state has its own rent control legislation — the <strong>Maharashtra Rent Control Act (1999)</strong>, <strong>Delhi Rent Control Act (1958)</strong>, <strong>Karnasthan Rent Act (2011)</strong>, among others. These acts define the landlord's obligations, tenant protections, and the legal process for eviction." },
+        { label: "What You Can Do", text: "Keep your rent receipts and lease agreement safe. If your landlord attempts eviction without notice, approach the <strong>Rent Control Court</strong> in your jurisdiction. You can also contact a Legal Services Authority for free legal assistance." }
+      ],
+      citation: "State Rent Control Acts — varies by jurisdiction | Legal Services Authorities Act, 1987"
+    },
+    "How do I file a consumer complaint in India?": {
+      sections: [
+        { label: "Your Right", text: "Under the <strong>Consumer Protection Act, 2019</strong>, every consumer has the right to file a complaint against unfair trade practices, defective goods, or deficient services. You can seek compensation, replacement, refund, or removal of defects." },
+        { label: "What the Law Says", text: "The Consumer Protection Act, 2019 established a three-tier quasi-judicial mechanism: <strong>District Commission</strong> (claims up to ₹1 crore), <strong>State Commission</strong> (₹1 crore to ₹10 crore), and <strong>National Commission</strong> (above ₹10 crore). You can also file complaints online at e-daakhil.nic.in." },
+        { label: "What You Can Do", text: "Gather all evidence — bills, receipts, screenshots, correspondence. File a complaint within <strong>2 years</strong> of the issue. Start with the <strong>District Consumer Disputes Redressal Commission</strong> where you live or where the company operates." }
+      ],
+      citation: "Consumer Protection Act, 2019 — Sections 34, 35, 69"
+    },
+    "What is the minimum wage for workers in my state?": {
+      sections: [
+        { label: "Your Right", text: "Every worker in India is entitled to a <strong>minimum wage</strong> determined by their state government. The <strong>Code on Wages, 2019</strong> aims to universalize this across all sectors, though implementation varies by state." },
+        { label: "What the Law Says", text: "The Code on Wages, 2019 consolidates four earlier laws: the Payment of Wages Act, Minimum Wages Act, Payment of Bonus Act, and Equal Remuneration Act. States set their own minimum wages based on skill level, industry, and region." },
+        { label: "What You Can Do", text: "Check your state's labour department website for current minimum wage rates. If your employer pays below minimum wage, file a complaint with the <strong>Labour Commissioner</strong> or approach the <strong>Labour Court</strong>. Keep pay slips as evidence." }
+      ],
+      citation: "Code on Wages, 2019 — Sections 3, 6 | Minimum Wages Act, 1948"
+    },
+    "Can I get free legal aid?": {
+      sections: [
+        { label: "Your Right", text: "Yes. Under <strong>Article 39A</strong> of the Indian Constitution and the <strong>Legal Services Authorities Act, 1987</strong>, you have the right to free legal services if you belong to aScheduled Caste/Tribe, are a woman, are a minor, have annual income below the prescribed limit, or are a victim of mass disaster." },
+        { label: "What the Law Says", text: "The <strong>National Legal Services Authority (NALSA)</strong> and State Legal Services Authorities provide free legal aid, representation, and advice. Every district has a <strong>District Legal Services Authority (DLSA)</strong> that can assist you." },
+        { label: "What You Can Do", text: "Visit your nearest <strong>District Legal Services Authority</strong> or call the <strong>legal aid helpline: 15100</strong>. You can also apply online at <strong>nalsa.gov.in</strong>. No lawyer fees, no court fees for eligible applicants." }
+      ],
+      citation: "Constitution of India — Article 39A | Legal Services Authorities Act, 1987 — Sections 2, 12"
+    }
+  };
+
+  function formatTime(){
+    var now = new Date();
+    var h = now.getHours();
+    var m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return 'Today, ' + h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+  }
+
+  function addUserMessage(text){
+    var row = document.createElement('div');
+    row.className = 'msg-row-user';
+    row.innerHTML = '<div><div class="msg-user"></div><div class="msg-time">' + formatTime() + '</div></div>';
+    row.querySelector('.msg-user').textContent = text;
+    chatInner.insertBefore(row, typingEl);
+    scrollBottom();
+  }
+
+  function addAIReply(text){
+    var reply = aiReplies[text];
+    if(!reply){
+      reply = {
+        sections: [
+          { label: "Your Right", text: "Under Indian law, you have fundamental rights that protect you in this situation. The specific protections depend on the nature of your case and the applicable state and central legislation." },
+          { label: "What the Law Says", text: "Multiple statutory provisions may apply depending on your jurisdiction and circumstances. A thorough legal analysis requires reviewing the specific facts. I recommend consulting a licensed advocate for case-specific guidance." },
+          { label: "What You Can Do", text: "Document all relevant facts and communications. Gather supporting evidence. Consider seeking legal aid through your District Legal Services Authority if you need assistance." }
+        ],
+        citation: "General — consult a licensed advocate for case-specific legal provisions"
+      };
+    }
+
+    var row = document.createElement('div');
+    row.className = 'msg-row-ai';
+
+    var avatar = document.createElement('div');
+    avatar.className = 'ai-avatar';
+
+    var badge = document.createElement('div');
+    badge.className = 'ai-avatar-badge';
+    badge.innerHTML = '<span>NS</span>';
+
+    var body = document.createElement('div');
+    body.className = 'ai-body';
+
+    var card = document.createElement('div');
+    card.className = 'ai-card';
+
+    reply.sections.forEach(function(s){
+      var sec = document.createElement('div');
+      sec.className = 'ai-section';
+      var lbl = document.createElement('div');
+      lbl.className = 'ai-section-label';
+      lbl.textContent = s.label;
+      var txt = document.createElement('div');
+      txt.className = 'ai-section-text';
+      txt.innerHTML = s.text;
+      sec.appendChild(lbl);
+      sec.appendChild(txt);
+      card.appendChild(sec);
+    });
+
+    if(reply.citation){
+      var citSec = document.createElement('div');
+      citSec.className = 'ai-section';
+      citSec.innerHTML = '<div class="ai-citation"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' + reply.citation + '</div>';
+      card.appendChild(citSec);
+    }
+
+    body.appendChild(card);
+
+    // Chips
+    var chips = document.createElement('div');
+    chips.className = 'ai-chips';
+    var chipData = [
+      { text: "Draft this document", icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+      { text: "See my timeline", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+      { text: "Simulate this action", icon: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' }
+    ];
+    chipData.forEach(function(c){
+      var btn = document.createElement('button');
+      btn.className = 'ai-chip';
+      btn.setAttribute('data-msg', c.text);
+      btn.innerHTML = c.icon + c.text;
+      chips.appendChild(btn);
+    });
+    body.appendChild(chips);
+
+    var time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = formatTime();
+    body.appendChild(time);
+
+    avatar.appendChild(badge);
+    avatar.appendChild(body);
+    row.appendChild(avatar);
+
+    chatInner.insertBefore(row, typingEl);
+    scrollBottom();
+
+    // Bind chips
+    row.querySelectorAll('.ai-chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        var msg = this.getAttribute('data-msg');
+        if(msg) sendMessage(msg);
+      });
+    });
+  }
+
+  function showTyping(){ typingEl.classList.add('visible'); scrollBottom(); }
+  function hideTyping(){ typingEl.classList.remove('visible'); }
+
+  function sendMessage(text){
+    hideWelcome();
+    addUserMessage(text);
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    sendBtn.classList.add('disabled');
+    showTyping();
+    setTimeout(function(){
+      hideTyping();
+      addAIReply(text);
+    }, 1200 + Math.random() * 800);
+  }
+
+  sendBtn.addEventListener('click', function(){
+    var val = chatInput.value.trim();
+    if(!val) return;
+    sendMessage(val);
+  });
+
+  chatInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      var val = chatInput.value.trim();
+      if(val) sendMessage(val);
+    }
+  });
+
+  // Start with chat area hidden
+  chatArea.classList.remove('visible');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+.theme-onboarding {
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  & {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --text-primary: #1A1615;
+    --text-secondary: #786F68;
+    --btn-fill: #3D2106;
+    --accent: #C9A24B;
+    --border: #E5DFD8;
+    --btn-shadow: 0 16px 35px rgba(201,162,75,0.25);
+    --font-headline: 'Playfair Display', Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  &{
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ns-badge {
+    width: 32px;
+    height: 32px;
+    background: var(--btn-fill);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .ns-wordmark {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+
+  .nav-center {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .nav-center a {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .nav-center a:hover {
+    color: var(--text-primary);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-login {
+    background: transparent;
+    color: var(--btn-fill);
+    border: 1.5px solid var(--btn-fill);
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 100px;
+    transition: background 0.2s;
+  }
+
+  .btn-login:hover {
+    background: var(--btn-fill);
+    color: #fff;
+  }
+
+  .btn-get-started {
+    background: var(--btn-fill);
+    color: #fff;
+    border: 1px solid var(--accent);
+    padding: 9px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 100px;
+    transition: opacity 0.2s;
+  }
+
+  .btn-get-started:hover {
+    opacity: 0.88;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .onboarding {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 40px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .dot.active {
+    background: var(--accent);
+  }
+
+  .step-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  /* ── STEP CONTAINER ── */
+  .step {
+    display: none;
+    animation: fadeSlide 0.35s ease forwards;
+  }
+
+  .step.visible {
+    display: block;
+  }
+
+  
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  .headline {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 30px;
+    color: var(--text-primary);
+    margin-bottom: 32px;
+    line-height: 1.25;
+  }
+
+  /* ── CARD GRID ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+  }
+
+  .card.selected {
+    border-color: var(--accent);
+    background: rgba(201,162,75,0.08);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .card-hindi { font-size: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--btn-fill);
+    color: #fff;
+    border: 1px solid var(--accent);
+    padding: 15px 40px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    box-shadow: var(--btn-shadow);
+    width: 100%;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .btn-row {
+    margin-top: 4px;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: var(--text-primary);
+  }
+
+  .skip-link {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .skip-link:hover {
+    color: var(--text-primary);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 540px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .headline {
+      font-size: 26px;
+    }
+    .nav-center {
+      display: none;
+    }
+    .nav {
+      padding: 0 16px;
+    }
+  }
+
+}
+
+/* Hoisted Keyframes */
+@keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }

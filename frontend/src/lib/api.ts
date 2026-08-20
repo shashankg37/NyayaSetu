@@ -18,8 +18,37 @@ export type TokenResponse = {
 
 export type ChatReply = {
   your_right?: string;
+  what_law_says?: string | string[];
+  what_this_means?: string;
+  what_you_can_do?: string | string[];
+  remedy?: string;
+  next_step?: string;
+  citations?: string[];
+  source?: string | null;
+  disclaimer?: string;
+  fallback_used?: boolean;
+  service_error?: boolean;
+  // Drafting fields
+  draft_text?: string;
+  pdf_path?: string;
+  docx_path?: string;
+  // Document analysis fields
+  user_document_extraction?: Record<string, unknown>;
+  ai_interpretation?: string;
+  // Lawyer matching fields
+  matches?: Array<Record<string, unknown>>;
+  // Research fields
+  provisions?: string[];
   summary?: string;
+  // Catch-all for unknown fields
   [key: string]: unknown;
+};
+
+export type ChatAPIResponse = {
+  conversation_id: string;
+  reply: ChatReply;
+  next_action?: string | null;
+  evidence_status?: string | null;
 };
 
 export type VoiceResponse = {

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nyaya Setu — Onboarding</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --text-primary: #1A1615;
+    --text-secondary: #786F68;
+    --btn-fill: #3D2106;
+    --accent: #C9A24B;
+    --border: #E5DFD8;
+    --btn-shadow: 0 16px 35px rgba(201,162,75,0.25);
+    --font-headline: 'Playfair Display', Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ns-badge {
+    width: 32px;
+    height: 32px;
+    background: var(--btn-fill);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .ns-wordmark {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+
+  .nav-center {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .nav-center a {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .nav-center a:hover {
+    color: var(--text-primary);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-login {
+    background: transparent;
+    color: var(--btn-fill);
+    border: 1.5px solid var(--btn-fill);
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 100px;
+    transition: background 0.2s;
+  }
+
+  .btn-login:hover {
+    background: var(--btn-fill);
+    color: #fff;
+  }
+
+  .btn-get-started {
+    background: var(--btn-fill);
+    color: #fff;
+    border: 1px solid var(--accent);
+    padding: 9px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 100px;
+    transition: opacity 0.2s;
+  }
+
+  .btn-get-started:hover {
+    opacity: 0.88;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .onboarding {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 40px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .dot.active {
+    background: var(--accent);
+  }
+
+  .step-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  /* ── STEP CONTAINER ── */
+  .step {
+    display: none;
+    animation: fadeSlide 0.35s ease forwards;
+  }
+
+  .step.visible {
+    display: block;
+  }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  .headline {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: 30px;
+    color: var(--text-primary);
+    margin-bottom: 32px;
+    line-height: 1.25;
+  }
+
+  /* ── CARD GRID ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+  }
+
+  .card.selected {
+    border-color: var(--accent);
+    background: rgba(201,162,75,0.08);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .card-hindi { font-size: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--btn-fill);
+    color: #fff;
+    border: 1px solid var(--accent);
+    padding: 15px 40px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    box-shadow: var(--btn-shadow);
+    width: 100%;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .btn-row {
+    margin-top: 4px;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: var(--text-primary);
+  }
+
+  .skip-link {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .skip-link:hover {
+    color: var(--text-primary);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 540px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .headline {
+      font-size: 26px;
+    }
+    .nav-center {
+      display: none;
+    }
+    .nav {
+      padding: 0 16px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV BAR ── -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="ns-badge">NS</div>
+    <span class="ns-wordmark">Nyaya Setu</span>
+  </div>
+  <div class="nav-center">
+    <a href="index.html">Home</a>
+    <a href="#">Ask Nyaya</a>
+    <a href="#">Know Your Rights</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-login">Login</button>
+    <button class="btn-get-started">Get Started</button>
+  </div>
+</nav>
+
+<!-- ── ONBOARDING ── -->
+<div class="onboarding">
+
+  <!-- Step Indicator -->
+  <div class="step-indicator">
+    <div class="dot active" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <span class="step-label" id="stepLabel">Step 1 of 2</span>
+  </div>
+
+  <!-- STEP 1: Language -->
+  <div class="step visible" id="step1">
+    <p class="eyebrow">Choose Your Language</p>
+    <h1 class="headline">Which language do you prefer?</h1>
+
+    <div class="card-grid" id="langGrid">
+      <div class="card" data-value="en">English</div>
+      <div class="card" data-value="hi">हिन्दी</div>
+      <div class="card" data-value="ta">தமிழ்</div>
+      <div class="card" data-value="te">తెలుగు</div>
+      <div class="card" data-value="bn">বাংলা</div>
+      <div class="card" data-value="mr">मराठी</div>
+      <div class="card" data-value="kn">ಕನ್ನಡ</div>
+      <div class="card" data-value="ml">മലയാളം</div>
+      <div class="card" data-value="gu">ગુજરાતી</div>
+      <div class="card" data-value="pa">ਪੰਜਾਬੀ</div>
+      <div class="card" data-value="or">ଓଡ଼ିଆ</div>
+      <div class="card" data-value="as">অসমীয়া</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="nextBtn" disabled>Next</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Persona -->
+  <div class="step" id="step2">
+    <a class="back-link" id="backBtn">&larr; Back</a>
+    <p class="eyebrow">Personalize Your Experience</p>
+    <h1 class="headline">I am a...</h1>
+
+    <div class="card-grid" id="personaGrid">
+      <div class="card" data-value="woman">Woman</div>
+      <div class="card" data-value="farmer">Farmer</div>
+      <div class="card" data-value="worker">Worker</div>
+      <div class="card" data-value="senior">Senior Citizen</div>
+      <div class="card" data-value="consumer">Consumer</div>
+      <div class="card" data-value="student">Student</div>
+      <div class="card" data-value="entrepreneur">Entrepreneur</div>
+      <div class="card" data-value="other">Other</div>
+    </div>
+
+    <a class="skip-link" id="skipBtn">Skip this step</a>
+
+    <div class="btn-row" style="margin-top: 8px;">
+      <button class="btn-primary" id="goBtn" disabled>Go to Dashboard</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    // ── Step Navigation ──
+    var step1 = document.getElementById('step1');
+    var step2 = document.getElementById('step2');
+    var dot1 = document.getElementById('dot1');
+    var dot2 = document.getElementById('dot2');
+    var stepLabel = document.getElementById('stepLabel');
+    var nextBtn = document.getElementById('nextBtn');
+    var backBtn = document.getElementById('backBtn');
+    var skipBtn = document.getElementById('skipBtn');
+    var goBtn = document.getElementById('goBtn');
+    var selectedLang = null;
+    var selectedPersona = null;
+
+    function goToStep(step) {
+      if (step === 1) {
+        step2.classList.remove('visible');
+        step1.classList.remove('visible');
+        step1.classList.add('visible');
+        dot1.classList.add('active');
+        dot2.classList.remove('active');
+        stepLabel.textContent = 'Step 1 of 2';
+      } else {
+        step1.classList.remove('visible');
+        step2.classList.remove('visible');
+        step2.classList.add('visible');
+        dot1.classList.add('active');
+        dot2.classList.add('active');
+        stepLabel.textContent = 'Step 2 of 2';
+      }
+    }
+
+    nextBtn.addEventListener('click', function () {
+      if (selectedLang) goToStep(2);
+    });
+
+    backBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      goToStep(1);
+    });
+
+    goBtn.addEventListener('click', function () {
+      window.location.href = 'dashboard.html';
+    });
+
+    skipBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.location.href = 'dashboard.html';
+    });
+
+    // ── Card Selection Logic ──
+    function setupCards(gridId, type) {
+      var grid = document.getElementById(gridId);
+      var cards = grid.querySelectorAll('.card');
+
+      cards.forEach(function (card) {
+        card.addEventListener('click', function () {
+          // Deselect all
+          cards.forEach(function (c) { c.classList.remove('selected'); });
+
+          if (type === 'lang') {
+            var wasSelected = selectedLang === card.getAttribute('data-value');
+            if (wasSelected) {
+              selectedLang = null;
+              nextBtn.disabled = true;
+            } else {
+              card.classList.add('selected');
+              selectedLang = card.getAttribute('data-value');
+              nextBtn.disabled = false;
+            }
+          } else {
+            var wasSel = selectedPersona === card.getAttribute('data-value');
+            if (wasSel) {
+              selectedPersona = null;
+              goBtn.disabled = true;
+            } else {
+              card.classList.add('selected');
+              selectedPersona = card.getAttribute('data-value');
+              goBtn.disabled = false;
+            }
+          }
+        });
+      });
+    }
+
+    setupCards('langGrid', 'lang');
+    setupCards('personaGrid', 'persona');
+  })();
+</script>
+
+</body>
+</html>

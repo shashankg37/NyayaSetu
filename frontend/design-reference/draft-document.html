@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft a Document — Nyaya Setu</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --primary: #1A1615;
+    --secondary: #786F68;
+    --btn-fill: #3D2106;
+    --accent: #C9A24B;
+    --btn-text: #FFFFFF;
+    --border: #E5DFD8;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--primary);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 64px;
+  }
+  .nav-left { display: flex; align-items: center; gap: 24px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--primary); }
+  .ns-badge {
+    width: 32px; height: 32px; background: var(--btn-fill); border: 1px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 13px; color: var(--btn-text);
+  }
+  .ns-wordmark { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 18px; color: var(--primary); }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a {
+    text-decoration: none; color: var(--secondary); font-size: 14px; font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--primary); }
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn-login {
+    background: transparent; border: 1px solid var(--border); color: var(--primary);
+    padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 999px; letter-spacing: 0.03em; transition: border-color 0.2s;
+  }
+  .btn-login:hover { border-color: var(--accent); }
+  .btn-getstarted {
+    background: var(--btn-fill); border: 1px solid var(--accent); color: var(--btn-text);
+    padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase; transition: box-shadow 0.2s;
+  }
+  .btn-getstarted:hover { box-shadow: 0 16px 35px rgba(201,162,75,0.25); }
+
+  /* ── MAIN LAYOUT ── */
+  .page-wrap {
+    display: flex; max-width: 1260px; margin: 0 auto; padding: 48px 40px 80px;
+    gap: 48px; min-height: calc(100vh - 64px);
+  }
+  .wizard-col { flex: 0 0 45%; max-width: 480px; }
+  .preview-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+
+  /* ── PROGRESS DOTS ── */
+  .progress-dots { display: flex; gap: 10px; margin-bottom: 40px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border); transition: background 0.3s;
+  }
+  .dot.active { background: var(--accent); }
+
+  /* ── WIZARD STEPS ── */
+  .step { display: none; animation: fadeSlideIn 0.35s ease; }
+  .step.visible { display: block; }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .eyebrow {
+    font-variant: small-caps; letter-spacing: 0.12em; font-size: 12px; font-weight: 600;
+    color: var(--accent); margin-bottom: 10px; text-transform: lowercase;
+  }
+
+  .step-headline {
+    font-family: 'Playfair Display', Georgia, serif; font-size: 30px; font-weight: 700;
+    color: var(--primary); line-height: 1.25; margin-bottom: 32px;
+  }
+
+  /* ── OPTION CARDS ── */
+  .option-list { display: flex; flex-direction: column; gap: 12px; }
+  .option-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 18px 22px; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .option-card:hover { border-color: var(--accent); background: #F2EDE6; }
+  .option-card.selected { border-color: var(--accent); background: #F2EDE6; }
+  .option-card .radio {
+    width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: border-color 0.2s;
+  }
+  .option-card.selected .radio { border-color: var(--accent); }
+  .option-card.selected .radio::after {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .option-card .label { font-size: 15px; font-weight: 500; color: var(--primary); }
+
+  /* ── INPUTS ── */
+  .field-input {
+    width: 100%; padding: 14px 18px; font-size: 15px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--primary);
+    font-family: inherit; transition: border-color 0.2s; outline: none;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: #B5ADA5; }
+
+  .field-textarea {
+    width: 100%; min-height: 200px; padding: 16px 18px; font-size: 15px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--primary);
+    font-family: inherit; resize: vertical; transition: border-color 0.2s; outline: none; line-height: 1.6;
+  }
+  .field-textarea:focus { border-color: var(--accent); }
+  .field-textarea::placeholder { color: #B5ADA5; }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    background: var(--btn-fill); border: 1px solid var(--accent); color: var(--btn-text);
+    padding: 14px 32px; font-size: 13px; font-weight: 700; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase; margin-top: 28px;
+    box-shadow: 0 16px 35px rgba(201,162,75,0.25); transition: box-shadow 0.2s, opacity 0.2s;
+    width: 100%;
+  }
+  .btn-primary:hover { box-shadow: 0 20px 45px rgba(201,162,75,0.35); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .back-link {
+    display: inline-block; margin-top: 24px; font-size: 13px; color: var(--secondary);
+    text-decoration: none; cursor: pointer; transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--primary); }
+
+  /* ── EXPORT BUTTONS (below preview) ── */
+  .export-row { display: flex; gap: 12px; margin-top: 28px; width: 100%; max-width: 560px; }
+  .export-row .btn-primary { margin-top: 0; flex: 1; }
+  .start-over {
+    margin-top: 16px; font-size: 13px; color: var(--secondary);
+    text-decoration: none; cursor: pointer; transition: color 0.2s; text-align: center; display: block;
+  }
+  .start-over:hover { color: var(--primary); }
+
+  /* ── PAPER PREVIEW ── */
+  .paper {
+    background: #FFFFFF; width: 100%; max-width: 560px; padding: 52px 48px;
+    box-shadow: 0 2px 16px rgba(26,22,21,0.08), 0 8px 40px rgba(26,22,21,0.05);
+    border-radius: 2px; font-family: 'Playfair Display', Georgia, serif;
+    font-size: 14px; line-height: 1.85; color: #1A1615; min-height: 520px;
+  }
+  .paper-header {
+    text-align: center; font-family: 'Playfair Display', Georgia, serif;
+    font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 28px; padding-bottom: 14px; border-bottom: 1.5px solid #1A1615;
+  }
+  .paper-field { margin-bottom: 4px; font-size: 13.5px; }
+  .paper-field strong { font-weight: 700; }
+  .paper-body {
+    margin-top: 22px; font-family: 'Playfair Display', Georgia, serif; font-size: 13.5px;
+    line-height: 1.9; color: #2A2523;
+  }
+  .paper-body p { margin-bottom: 14px; }
+  .paper-sig { margin-top: 36px; }
+  .paper-sig .sig-line { width: 180px; border-top: 1px solid #1A1615; margin-bottom: 4px; margin-top: 40px; }
+  .paper-sig .sig-label { font-size: 12.5px; color: #786F68; }
+  .paper-empty {
+    display: flex; align-items: center; justify-content: center; min-height: 400px;
+    color: #B5ADA5; font-style: italic; font-size: 14px; text-align: center;
+  }
+  .paper-placeholder { color: var(--accent); font-style: italic; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .page-wrap { flex-direction: column; padding: 32px 20px 60px; gap: 40px; }
+    .wizard-col { flex: none; max-width: 100%; }
+    .nav-links { display: none; }
+    .paper { padding: 36px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav class="nav">
+  <div class="nav-left">
+    <a class="nav-brand" href="#">
+      <div class="ns-badge">NS</div>
+      <span class="ns-wordmark">Nyaya Setu</span>
+    </a>
+    <div class="nav-links">
+      <a href="#">Home</a>
+      <a href="#">Ask Nyaya</a>
+      <a href="#">Know Your Rights</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button class="btn-login">Login</button>
+    <button class="btn-getstarted">Get Started</button>
+  </div>
+</nav>
+
+<!-- ═══════════ PAGE ═══════════ -->
+<div class="page-wrap">
+
+  <!-- LEFT: Wizard -->
+  <div class="wizard-col">
+    <div class="progress-dots">
+      <div class="dot active" data-step="1"></div>
+      <div class="dot" data-step="2"></div>
+      <div class="dot" data-step="3"></div>
+      <div class="dot" data-step="4"></div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="step visible" id="step1">
+      <div class="eyebrow">DOCUMENT DRAFTING</div>
+      <h2 class="step-headline">What do you need to draft?</h2>
+      <div class="option-list" id="docTypeOptions">
+        <div class="option-card" data-value="Legal Notice" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Legal Notice</span>
+        </div>
+        <div class="option-card" data-value="Rental Agreement" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Rental Agreement</span>
+        </div>
+        <div class="option-card" data-value="Employment Contract" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Employment Contract</span>
+        </div>
+        <div class="option-card" data-value="Power of Attorney" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Power of Attorney</span>
+        </div>
+        <div class="option-card" data-value="Consumer Complaint" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Consumer Complaint</span>
+        </div>
+        <div class="option-card" data-value="Other" onclick="selectOption(this,'docType')">
+          <div class="radio"></div><span class="label">Other</span>
+        </div>
+      </div>
+      <button class="btn-primary" id="step1Next" disabled onclick="goStep(2)">Next</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step" id="step2">
+      <div class="eyebrow">DOCUMENT DRAFTING</div>
+      <h2 class="step-headline">Who is this addressed to?</h2>
+      <input class="field-input" id="recipientInput" type="text"
+        placeholder="e.g., Landlord, Employer, Consumer Forum"
+        oninput="updatePreview(); document.getElementById('step2Next').disabled = !this.value.trim();">
+      <button class="btn-primary" id="step2Next" disabled onclick="goStep(3)">Next</button>
+      <a class="back-link" onclick="goStep(1)">&larr; Back</a>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step" id="step3">
+      <div class="eyebrow">DOCUMENT DRAFTING</div>
+      <h2 class="step-headline">What should it say?</h2>
+      <textarea class="field-textarea" id="detailsInput"
+        placeholder="Describe the main points you want addressed in this document..."
+        oninput="updatePreview()"></textarea>
+      <button class="btn-primary" id="step3Next" onclick="goStep(4)">Next</button>
+      <a class="back-link" onclick="goStep(2)">&larr; Back</a>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step" id="step4">
+      <div class="eyebrow">DOCUMENT DRAFTING</div>
+      <h2 class="step-headline">Your Document is Ready</h2>
+      <p style="font-size:14px;color:var(--secondary);margin-bottom:8px;">Review your document on the right. You can export it when ready.</p>
+      <a class="back-link" onclick="goStep(3)">&larr; Edit details</a>
+    </div>
+  </div>
+
+  <!-- RIGHT: Preview -->
+  <div class="preview-col">
+    <div class="paper" id="paperPreview">
+      <div class="paper-empty" id="paperEmpty">
+        Your document preview will appear here once you begin.
+      </div>
+      <div id="paperContent" style="display:none;"></div>
+    </div>
+
+    <div class="export-row" id="exportRow" style="display:none;">
+      <button class="btn-primary" onclick="return false;">Export as PDF</button>
+      <button class="btn-primary" onclick="return false;">Export as DOCX</button>
+    </div>
+    <a class="start-over" id="startOver" style="display:none;" onclick="resetWizard()">Start Over</a>
+  </div>
+</div>
+
+<script>
+  let currentStep = 1;
+  let docType = '';
+  let recipient = '';
+  let details = '';
+
+  function selectOption(card, field) {
+    document.querySelectorAll('#docTypeOptions .option-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    docType = card.getAttribute('data-value');
+    document.getElementById('step1Next').disabled = false;
+  }
+
+  function goStep(n) {
+    currentStep = n;
+    if (n >= 2) recipient = document.getElementById('recipientInput').value.trim();
+    if (n >= 3) details = document.getElementById('detailsInput').value.trim();
+
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('visible'));
+    document.getElementById('step' + n).classList.add('visible');
+
+    document.querySelectorAll('.dot').forEach(d => {
+      d.classList.toggle('active', parseInt(d.dataset.step) <= n);
+    });
+
+    updatePreview();
+
+    if (n === 4) {
+      document.getElementById('exportRow').style.display = 'flex';
+      document.getElementById('startOver').style.display = 'block';
+    } else {
+      document.getElementById('exportRow').style.display = 'none';
+      document.getElementById('startOver').style.display = 'none';
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updatePreview() {
+    var recip = recipient || document.getElementById('recipientInput').value.trim() || '';
+    var det = details || document.getElementById('detailsInput').value.trim() || '';
+    var type = docType || 'Legal Notice';
+
+    var isEmpty = !recip && !det;
+    var paperEmpty = document.getElementById('paperEmpty');
+    var paperContent = document.getElementById('paperContent');
+
+    if (currentStep === 1 && !docType) {
+      paperEmpty.style.display = 'flex';
+      paperContent.style.display = 'none';
+      return;
+    }
+
+    paperEmpty.style.display = 'none';
+    paperContent.style.display = 'block';
+
+    var today = new Date();
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var dateStr = today.getDate() + ' ' + months[today.getMonth()] + ' ' + today.getFullYear();
+
+    var headerText = type.toUpperCase();
+    if (type === 'Legal Notice') headerText = 'LEGAL NOTICE';
+
+    var toLine = recip ? escHtml(recip) : '<span class="paper-placeholder">[Recipient Name &amp; Address]</span>';
+    var bodyHtml = '';
+
+    if (type === 'Legal Notice') {
+      if (det) {
+        bodyHtml = '<p>Dear Sir/Madam,</p>'
+          + '<p>Under instructions from and on behalf of my client, <strong>[Client Name]</strong>, I hereby serve you with the following legal notice:</p>'
+          + '<p>' + escHtml(det).replace(/\n/g, '</p><p>') + '</p>'
+          + '<p>You are called upon to remedy the above-mentioned grievance and comply with the demands herein within <strong>fifteen (15) days</strong> from the date of receipt of this notice, failing which my client shall be constrained to initiate appropriate civil and/or criminal proceedings against you at your risk as to costs and consequences.</p>'
+          + '<p>This notice is issued without prejudice to any other rights and remedies available to my client under law.</p>'
+          + '<p>Kindly treat this matter with utmost urgency.</p>';
+      } else {
+        bodyHtml = '<p>Dear Sir/Madam,</p>'
+          + '<p>Under instructions from and on behalf of my client, <strong>[Client Name]</strong>, I hereby serve you with the following legal notice:</p>'
+          + '<p>That my client is the lawful tenant/owner of the premises situated at <strong>[Full Address of Property]</strong>, and has been in peaceful enjoyment of the said premises since <strong>[Date of Occupancy]</strong>.</p>'
+          + '<p>That you have failed to fulfill your obligations under the said agreement by <strong>[describe the breach, e.g., refusing to carry out essential repairs, demanding illegal eviction, withholding security deposit]</strong>, thereby causing immense hardship and mental agony to my client.</p>'
+          + '<p>You are hereby called upon to remedy the above-mentioned grievance and comply with the demands herein within <strong>fifteen (15) days</strong> from the date of receipt of this notice, failing which my client shall be constrained to initiate appropriate civil and/or criminal proceedings against you at your risk as to costs and consequences.</p>'
+          + '<p>This notice is issued without prejudice to any other rights and remedies available to my client under law, including but not limited to those under the Transfer of Property Act, 1882, the Indian Contract Act, 1872, and the relevant rent control legislation applicable in the State of <strong>[State]</strong>.</p>'
+          + '<p>Kindly treat this matter with utmost urgency.</p>';
+      }
+    } else if (type === 'Rental Agreement') {
+      bodyHtml = '<p><strong>THIS RENTAL AGREEMENT</strong> is executed on ' + dateStr + '.</p>'
+        + '<p><strong>BETWEEN</strong></p>'
+        + '<p><strong>Landlord:</strong> ' + (recip ? escHtml(recip) : '<span class="paper-placeholder">[Landlord Name]</span>') + ', residing at <span class="paper-placeholder">[Address]</span> (hereinafter referred to as the "Landlord")</p>'
+        + '<p><strong>AND</strong></p>
+        + '<p><strong>Tenant:</strong> <span class="paper-placeholder">[Tenant Name]</span>, residing at <span class="paper-placeholder">[Address]</span> (hereinafter referred to as the "Tenant")</p>'
+        + '<p>The Landlord agrees to let and the Tenant agrees to take on rent the residential premises situated at <span class="paper-placeholder">[Property Address]</span> for a period of <strong>eleven (11) months</strong> commencing from <span class="paper-placeholder">[Start Date]</span> at a monthly rent of Rs. <span class="paper-placeholder">[Amount]</span>/- payable on or before the 5th day of each calendar month.</p>'
+        + (det ? '<p><strong>Special Terms:</strong> ' + escHtml(det).replace(/\n/g, '</p><p>') + '</p>' : '')
+        + '<p>This agreement shall be governed by the Indian Contract Act, 1872 and the relevant State Rent Control Act.</p>';
+    } else {
+      bodyHtml = '<p>This ' + escHtml(type.toLowerCase()) + ' is executed on ' + dateStr + '.</p>'
+        + '<p><strong>To:</strong> ' + toLine + '</p>'
+        + (det ? '<p>' + escHtml(det).replace(/\n/g, '</p><p>') + '</p>' : '<p><span class="paper-placeholder">[Document content will appear here based on your inputs]</span></p>');
+    }
+
+    var sigName = '<span class="paper-placeholder">[Authorized Signatory]</span>';
+    var sigTitle = '<span class="paper-placeholder">[Title]</span>';
+
+    paperContent.innerHTML =
+      '<div class="paper-header">' + headerText + '</div>'
+      + '<div class="paper-field"><strong>Date:</strong> ' + dateStr + '</div>'
+      + '<div class="paper-field"><strong>To,</strong> ' + toLine + '</div>'
+      + '<div class="paper-field"><strong>From,</strong> ' + (docType === 'Legal Notice' ? '<span class="paper-placeholder">[Advocate Name]</span>, Advocate' : '<span class="paper-placeholder">[Your Name]</span>') + '</div>'
+      + '<div class="paper-body">' + bodyHtml + '</div>'
+      + '<div class="paper-sig">'
+      + '  <div class="sig-line"></div>'
+      + '  <div class="sig-label">' + sigName + '</div>'
+      + '  <div class="sig-label">' + sigTitle + '</div>'
+      + '</div>';
+  }
+
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+  }
+
+  function resetWizard() {
+    docType = '';
+    recipient = '';
+    details = '';
+    document.getElementById('recipientInput').value = '';
+    document.getElementById('detailsInput').value = '';
+    document.querySelectorAll('#docTypeOptions .option-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('step1Next').disabled = true;
+    goStep(1);
+  }
+</script>
+</body>
+</html>

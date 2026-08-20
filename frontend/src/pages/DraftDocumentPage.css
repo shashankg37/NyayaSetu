@@ -1,0 +1,201 @@
+.theme-draft-document {
+
+  
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  & {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --primary: #1A1615;
+    --secondary: #786F68;
+    --btn-fill: #3D2106;
+    --accent: #C9A24B;
+    --btn-text: #FFFFFF;
+    --border: #E5DFD8;
+  }
+
+  &{ scroll-behavior: smooth; }
+
+  &{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--primary);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 64px;
+  }
+  .nav-left { display: flex; align-items: center; gap: 24px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--primary); }
+  .ns-badge {
+    width: 32px; height: 32px; background: var(--btn-fill); border: 1px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 13px; color: var(--btn-text);
+  }
+  .ns-wordmark { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 18px; color: var(--primary); }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a {
+    text-decoration: none; color: var(--secondary); font-size: 14px; font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--primary); }
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn-login {
+    background: transparent; border: 1px solid var(--border); color: var(--primary);
+    padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 999px; letter-spacing: 0.03em; transition: border-color 0.2s;
+  }
+  .btn-login:hover { border-color: var(--accent); }
+  .btn-getstarted {
+    background: var(--btn-fill); border: 1px solid var(--accent); color: var(--btn-text);
+    padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase; transition: box-shadow 0.2s;
+  }
+  .btn-getstarted:hover { box-shadow: 0 16px 35px rgba(201,162,75,0.25); }
+
+  /* ── MAIN LAYOUT ── */
+  .page-wrap {
+    display: flex; max-width: 1260px; margin: 0 auto; padding: 48px 40px 80px;
+    gap: 48px; min-height: calc(100vh - 64px);
+  }
+  .wizard-col { flex: 0 0 45%; max-width: 480px; }
+  .preview-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+
+  /* ── PROGRESS DOTS ── */
+  .progress-dots { display: flex; gap: 10px; margin-bottom: 40px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border); transition: background 0.3s;
+  }
+  .dot.active { background: var(--accent); }
+
+  /* ── WIZARD STEPS ── */
+  .step { display: none; animation: fadeSlideIn 0.35s ease; }
+  .step.visible { display: block; }
+
+  
+
+  .eyebrow {
+    font-variant: small-caps; letter-spacing: 0.12em; font-size: 12px; font-weight: 600;
+    color: var(--accent); margin-bottom: 10px; text-transform: lowercase;
+  }
+
+  .step-headline {
+    font-family: 'Playfair Display', Georgia, serif; font-size: 30px; font-weight: 700;
+    color: var(--primary); line-height: 1.25; margin-bottom: 32px;
+  }
+
+  /* ── OPTION CARDS ── */
+  .option-list { display: flex; flex-direction: column; gap: 12px; }
+  .option-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 18px 22px; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .option-card:hover { border-color: var(--accent); background: #F2EDE6; }
+  .option-card.selected { border-color: var(--accent); background: #F2EDE6; }
+  .option-card .radio {
+    width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: border-color 0.2s;
+  }
+  .option-card.selected .radio { border-color: var(--accent); }
+  .option-card.selected .radio::after {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .option-card .label { font-size: 15px; font-weight: 500; color: var(--primary); }
+
+  /* ── INPUTS ── */
+  .field-input {
+    width: 100%; padding: 14px 18px; font-size: 15px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--primary);
+    font-family: inherit; transition: border-color 0.2s; outline: none;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: #B5ADA5; }
+
+  .field-textarea {
+    width: 100%; min-height: 200px; padding: 16px 18px; font-size: 15px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--primary);
+    font-family: inherit; resize: vertical; transition: border-color 0.2s; outline: none; line-height: 1.6;
+  }
+  .field-textarea:focus { border-color: var(--accent); }
+  .field-textarea::placeholder { color: #B5ADA5; }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    background: var(--btn-fill); border: 1px solid var(--accent); color: var(--btn-text);
+    padding: 14px 32px; font-size: 13px; font-weight: 700; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase; margin-top: 28px;
+    box-shadow: 0 16px 35px rgba(201,162,75,0.25); transition: box-shadow 0.2s, opacity 0.2s;
+    width: 100%;
+  }
+  .btn-primary:hover { box-shadow: 0 20px 45px rgba(201,162,75,0.35); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .back-link {
+    display: inline-block; margin-top: 24px; font-size: 13px; color: var(--secondary);
+    text-decoration: none; cursor: pointer; transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--primary); }
+
+  /* ── EXPORT BUTTONS (below preview) ── */
+  .export-row { display: flex; gap: 12px; margin-top: 28px; width: 100%; max-width: 560px; }
+  .export-row .btn-primary { margin-top: 0; flex: 1; }
+  .start-over {
+    margin-top: 16px; font-size: 13px; color: var(--secondary);
+    text-decoration: none; cursor: pointer; transition: color 0.2s; text-align: center; display: block;
+  }
+  .start-over:hover { color: var(--primary); }
+
+  /* ── PAPER PREVIEW ── */
+  .paper {
+    background: #FFFFFF; width: 100%; max-width: 560px; padding: 52px 48px;
+    box-shadow: 0 2px 16px rgba(26,22,21,0.08), 0 8px 40px rgba(26,22,21,0.05);
+    border-radius: 2px; font-family: 'Playfair Display', Georgia, serif;
+    font-size: 14px; line-height: 1.85; color: #1A1615; min-height: 520px;
+  }
+  .paper-header {
+    text-align: center; font-family: 'Playfair Display', Georgia, serif;
+    font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 28px; padding-bottom: 14px; border-bottom: 1.5px solid #1A1615;
+  }
+  .paper-field { margin-bottom: 4px; font-size: 13.5px; }
+  .paper-field strong { font-weight: 700; }
+  .paper-&{
+    margin-top: 22px; font-family: 'Playfair Display', Georgia, serif; font-size: 13.5px;
+    line-height: 1.9; color: #2A2523;
+  }
+  .paper-body p { margin-bottom: 14px; }
+  .paper-sig { margin-top: 36px; }
+  .paper-sig .sig-line { width: 180px; border-top: 1px solid #1A1615; margin-bottom: 4px; margin-top: 40px; }
+  .paper-sig .sig-label { font-size: 12.5px; color: #786F68; }
+  .paper-empty {
+    display: flex; align-items: center; justify-content: center; min-height: 400px;
+    color: #B5ADA5; font-style: italic; font-size: 14px; text-align: center;
+  }
+  .paper-placeholder { color: var(--accent); font-style: italic; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .page-wrap { flex-direction: column; padding: 32px 20px 60px; gap: 40px; }
+    .wizard-col { flex: none; max-width: 100%; }
+    .nav-links { display: none; }
+    .paper { padding: 36px 28px; }
+  }
+
+}
+
+/* Hoisted Keyframes */
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }

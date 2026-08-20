@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nyaya Setu — Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg: #FBF8F3;
+    --surface: #F7F3EC;
+    --text-primary: #1A1615;
+    --text-secondary: #786F68;
+    --btn-fill: #3D2106;
+    --gold: #C9A24B;
+    --btn-text: #FFFFFF;
+    --border: #E5DFD8;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 64px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .ns-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--btn-fill);
+    border: 1.5px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--btn-text);
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+
+  .ns-wordmark {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .nav-center {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .nav-center a {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s;
+  }
+
+  .nav-center a:hover {
+    color: var(--text-primary);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-login {
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .btn-login:hover {
+    border-color: var(--text-primary);
+  }
+
+  .btn-start {
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--btn-text);
+    background: var(--btn-fill);
+    border: 1px solid var(--gold);
+    border-radius: 0;
+    cursor: pointer;
+    transition: box-shadow 0.25s;
+  }
+
+  .btn-start:hover {
+    box-shadow: 0 16px 35px rgba(201,162,75,0.25);
+  }
+
+  /* ── PAGE ── */
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 56px 40px 80px;
+  }
+
+  /* Eyebrow */
+  .eyebrow {
+    font-size: 11px;
+    font-variant: small-caps;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  /* ── WELCOME HEADER ── */
+  .welcome {
+    margin-bottom: 48px;
+  }
+
+  .welcome h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 36px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .welcome p {
+    font-size: 16px;
+    color: var(--text-secondary);
+  }
+
+  /* ── ACTION CARDS ── */
+  .action-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 64px;
+  }
+
+  .action-card {
+    display: flex;
+    flex-direction: column;
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+
+  .action-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 0;
+    background: var(--gold);
+    transition: height 0.25s;
+  }
+
+  .action-card:hover {
+    border-color: var(--gold);
+    box-shadow: 0 12px 40px rgba(201,162,75,0.10);
+  }
+
+  .action-card:hover::before {
+    height: 100%;
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 20px;
+    color: var(--gold);
+  }
+
+  .action-card .eyebrow {
+    margin-bottom: 6px;
+  }
+
+  .action-card h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.25;
+  }
+
+  .action-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ── RECENT ACTIVITY ── */
+  .recent-section {
+    margin-top: 16px;
+  }
+
+  .recent-section h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+  }
+
+  .activity-list {
+    list-style: none;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .activity-text {
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+
+  .activity-time {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    margin-left: 24px;
+    flex-shrink: 0;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 960px) {
+    .action-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .nav {
+      padding: 0 20px;
+    }
+    .nav-center {
+      display: none;
+    }
+    .page {
+      padding: 36px 20px 64px;
+    }
+    .welcome h1 {
+      font-size: 28px;
+    }
+    .action-cards {
+      grid-template-columns: 1fr;
+    }
+    .activity-item {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .activity-time {
+      margin-left: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ NAV ═══════ -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="ns-badge">NS</div>
+    <span class="ns-wordmark">Nyaya Setu</span>
+  </div>
+  <div class="nav-center">
+    <a href="index.html">Home</a>
+    <a href="ask-nyaya.html">Ask Nyaya</a>
+    <a href="know-your-rights.html">Know Your Rights</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-login">Login</button>
+    <button class="btn-start">Get Started</button>
+  </div>
+</nav>
+
+<!-- ═══════ PAGE ═══════ -->
+<main class="page">
+
+  <!-- Welcome Header -->
+  <section class="welcome">
+    <div class="eyebrow">Dashboard</div>
+    <h1>Welcome back, Priya</h1>
+    <p>What would you like to do today?</p>
+  </section>
+
+  <!-- Action Cards -->
+  <section class="action-cards">
+
+    <!-- Ask Nyaya -->
+    <a href="ask-nyaya.html" class="action-card">
+      <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+        <path d="M4 4h16v12H6l-2 2V4z"/>
+        <line x1="8" y1="9" x2="16" y2="9"/>
+        <line x1="8" y1="13" x2="13" y2="13"/>
+      </svg>
+      <div class="eyebrow">AI Assistant</div>
+      <h3>Ask Nyaya</h3>
+      <p>Get answers to your legal questions</p>
+    </a>
+
+    <!-- Know Your Rights -->
+    <a href="know-your-rights.html" class="action-card">
+      <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+        <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
+        <polyline points="9 12 11 14 15 10"/>
+      </svg>
+      <div class="eyebrow">Browse</div>
+      <h3>Know Your Rights</h3>
+      <p>Explore rights by category</p>
+    </a>
+
+    <!-- Upload a Document -->
+    <a href="upload.html" class="action-card">
+      <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 12 15 15"/>
+      </svg>
+      <div class="eyebrow">Documents</div>
+      <h3>Upload a Document</h3>
+      <p>Analyze legal documents with AI</p>
+    </a>
+
+    <!-- Draft a Document -->
+    <a href="draft-document.html" class="action-card">
+      <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+        <path d="M17 3l4 4L7 21H3v-4L17 3z"/>
+        <line x1="15" y1="5" x2="19" y2="9"/>
+        <line x1="3" y1="21" x2="7" y2="21"/>
+      </svg>
+      <div class="eyebrow">Drafting</div>
+      <h3>Draft a Document</h3>
+      <p>Create legal documents step by step</p>
+    </a>
+
+  </section>
+
+  <!-- Recent Activity -->
+  <section class="recent-section">
+    <h2>Recent Activity</h2>
+    <ul class="activity-list">
+      <li class="activity-item">
+        <span class="activity-text">Asked about tenant eviction rights</span>
+        <span class="activity-time">2 hours ago</span>
+      </li>
+      <li class="activity-item">
+        <span class="activity-text">Uploaded rental agreement for review</span>
+        <span class="activity-time">Yesterday</span>
+      </li>
+      <li class="activity-item">
+        <span class="activity-text">Drafted a legal notice for noise complaint</span>
+        <span class="activity-time">3 days ago</span>
+      </li>
+      <li class="activity-item">
+        <span class="activity-text">Browsed Consumer Protection rights</span>
+        <span class="activity-time">Last week</span>
+      </li>
+    </ul>
+  </section>
+
+</main>
+
+</body>
+</html>

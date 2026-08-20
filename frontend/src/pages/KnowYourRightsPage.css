@@ -1,0 +1,185 @@
+.theme-know-your-rights {
+
+    
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    &{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #FBF8F3;
+      color: #1A1615;
+      min-height: 100vh;
+      padding-top: 73px;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 72px; padding: 0 32px;
+      background: #FBF8F3;
+      border-bottom: 1px solid #E5DFD8;
+    }
+    .nav-left { display: flex; align-items: center; gap: 16px; }
+    .ns-badge {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #3D2106; border: 2px solid #C9A24B;
+      display: flex; align-items: center; justify-content: center;
+      color: #FFFFFF; font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700; font-size: 12px; flex-shrink: 0;
+    }
+    .ns-wordmark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700; font-size: 18px; color: #1A1615;
+    }
+    .nav-center { display: flex; align-items: center; gap: 28px; }
+    .nav-center a {
+      font-size: 14px; color: #786F68; text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-center a:hover, .nav-center a.active { color: #1A1615; }
+    .nav-center a.active { font-weight: 600; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .btn-login {
+      background: transparent; border: 1.5px solid #1A1615;
+      border-radius: 999px; padding: 8px 22px;
+      font-size: 13px; font-weight: 600; color: #1A1615;
+      cursor: pointer; letter-spacing: 0.04em;
+    }
+    .btn-primary {
+      background: #3D2106; border: 1px solid #C9A24B;
+      border-radius: 0; padding: 12px 28px;
+      font-size: 13px; font-weight: 600; color: #FFFFFF;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      cursor: pointer;
+      box-shadow: 0 16px 35px rgba(201,162,75,0.25);
+      transition: opacity 0.2s;
+    }
+    .btn-primary:disabled {
+      opacity: 0.4; cursor: default;
+      box-shadow: none;
+    }
+    .btn-outline-pill {
+      background: transparent; border: 1.5px solid #1A1615;
+      border-radius: 999px; padding: 12px 28px;
+      font-size: 13px; font-weight: 600; color: #1A1615;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    /* ── PROGRESS ── */
+    .progress-bar {
+      max-width: 560px; margin: 40px auto 0;
+      text-align: center;
+    }
+    .progress-label {
+      font-size: 12px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #786F68;
+      margin-bottom: 14px;
+      font-variant: small-caps;
+    }
+    .progress-dots { display: flex; justify-content: center; gap: 10px; }
+    .progress-dots .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #E5DFD8; transition: background 0.3s;
+    }
+    .progress-dots .dot.active { background: #C9A24B; }
+
+    /* ── STEP CONTAINER ── */
+    .steps-wrapper {
+      max-width: 760px; margin: 0 auto; padding: 32px 24px 80px;
+    }
+    .step { display: none; animation: fadeIn 0.35s ease; }
+    .step.visible { display: block; }
+    
+
+    .eyebrow {
+      font-size: 12px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #C9A24B;
+      font-variant: small-caps; margin-bottom: 10px;
+    }
+    .headline {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 36px; font-weight: 700; color: #1A1615;
+      margin-bottom: 36px; line-height: 1.2;
+    }
+
+    /* ── CARD GRID ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: #F7F3EC; border: 1.5px solid #E5DFD8;
+      padding: 28px 16px; text-align: center;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    }
+    .card .card-icon {
+      font-size: 28px; margin-bottom: 10px; display: block;
+      width: 48px; height: 48px; margin-left: auto; margin-right: auto;
+      background: #E5DFD8; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700; color: #786F68; font-size: 16px;
+    }
+    .card .card-label {
+      font-size: 14px; font-weight: 500; color: #1A1615;
+    }
+    .card:hover { border-color: #C9A24B; }
+    .card.selected {
+      border-color: #C9A24B; background: #FBF5E4;
+    }
+    .card.selected .card-icon {
+      background: #C9A24B; color: #FFFFFF;
+    }
+
+    /* ── STEP FOOTER ── */
+    .step-footer {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .back-link {
+      font-size: 14px; color: #786F68;
+      text-decoration: none; cursor: pointer;
+      border: none; background: none;
+      font-weight: 500;
+    }
+    .back-link:hover { color: #1A1615; }
+
+    /* ── RESULTS ── */
+    .results-sections { margin-top: 8px; }
+    .result-block {
+      background: #F7F3EC; border: 1px solid #E5DFD8;
+      padding: 28px 28px; margin-bottom: 16px;
+    }
+    .result-block h3 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 18px; font-weight: 700; color: #1A1615;
+      margin-bottom: 10px;
+    }
+    .result-block p {
+      font-size: 15px; line-height: 1.65; color: #1A1615;
+    }
+    .citation-pill {
+      display: inline-block;
+      background: #FBF8F3; border: 1px solid #E5DFD8;
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 12px; color: #786F68;
+      margin-top: 4px; margin-right: 6px;
+    }
+    .result-actions {
+      display: flex; gap: 14px; margin-top: 32px;
+    }
+
+    @media (max-width: 600px) {
+      .nav { padding: 0 16px; }
+      .nav-center { display: none; }
+      .headline { font-size: 28px; }
+      .card-grid { grid-template-columns: repeat(2, 1fr); }
+      .steps-wrapper { padding: 24px 16px 60px; }
+    }
+  
+}
+
+/* Hoisted Keyframes */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
