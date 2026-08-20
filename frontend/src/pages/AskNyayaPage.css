@@ -270,7 +270,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 24px;
+    padding: 40px 24px 120px;
     text-align: center;
     opacity: 1;
     transition: opacity 0.4s

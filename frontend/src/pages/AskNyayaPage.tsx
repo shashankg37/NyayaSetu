@@ -587,7 +587,6 @@ export default function AskNyayaPage() {
                         <div className="welcome-watermark">JUSTICE</div>
                         <div className="welcome-eyebrow">AI Legal Assistant</div>
                         <h1>How can I help you<br />today?</h1>
-                        <p>Ask any legal question in English or Hindi. I'll ground my answer in actual Indian law and show you exactly what you can do.</p>
                         <div className="suggestions">
                             <div className="suggestion-card" onClick={() => handleSend("What are my rights as a tenant in India?")}>
                                 <div className="suggestion-icon">
