@@ -11,9 +11,8 @@ export default function LandingPage() {
             <>
             {/*  NAV  */}
             <nav className="nav">
-              <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-                <div className="ns-badge">NS</div>
-                <span className="ns-wordmark">Nyaya Setu</span>
+              <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '36px', width: 'auto' }} />
               </div>
               <div className="nav-center">
                 <Link to="/">Home</Link>
@@ -164,9 +163,8 @@ export default function LandingPage() {
             <footer className="footer">
               <div className="footer-inner">
                 <div className="footer-brand">
-                  <div className="footer-logo">
-                    <div className="footer-ns-badge">NS</div>
-                    <span className="footer-wordmark">Nyaya Setu</span>
+                  <div className="footer-logo" style={{ display: 'flex', alignItems: 'center' }}>
+                    <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '45px', width: 'auto' }} />
                   </div>
                   <p className="footer-tagline">Bridging the gap between citizens and the law.</p>
                 </div>

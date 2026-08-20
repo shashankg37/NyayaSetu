@@ -38,9 +38,8 @@ export default function KnowYourRightsPage() {
             <div className="page">
             {/*  NAV  */}
             <nav className="nav">
-              <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-                <div className="ns-badge">NS</div>
-                <span className="ns-wordmark">Nyaya Setu</span>
+              <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '36px', width: 'auto' }} />
               </div>
               <div className="nav-center">
                 <Link to="/">Home</Link>

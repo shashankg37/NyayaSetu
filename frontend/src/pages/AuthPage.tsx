@@ -51,9 +51,8 @@ export default function AuthPage() {
             <>
             {/* ══════════ NAV ══════════ */}
             <nav>
-                <div className="nav-left">
-                    <div className="ns-badge">NS</div>
-                    <span className="wordmark">Nyaya Setu</span>
+                <div className="nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <img src="/logo.png" alt="Nyaya Setu Logo" style={{ height: '36px', width: 'auto' }} />
                 </div>
                 <ul className="nav-links">
                     <li><Link to="/">Home</Link></li>
